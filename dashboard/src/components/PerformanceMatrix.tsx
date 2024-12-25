@@ -59,7 +59,7 @@ const PerformanceMatrix = () => {
 
   const fetchTeachers = async () => {
     try {
-      const response = await fetch('/api/teachers'); // Assuming there's an endpoint to fetch teachers
+      const response = await fetch('/api/teachers'); 
       const data = await response.json();
       setTeachers(data.teachers);
     } catch (error) {
@@ -201,7 +201,7 @@ const PerformanceMatrix = () => {
                     <tr key={index} className="border-t">
                       <td className="p-2">{`${student['First Name']} ${student['Last Name']}`}</td>
                       <td className="p-2">{student.Grade}</td>
-                      <td className="p-2">{student.Teacher}</td> // Assuming 'Teacher' is the correct key
+                      <td className="p-2">{student.Teacher}</td>
                       <td className="p-2 text-right">{student.staar_score}%</td>
                       <td className="p-2 text-right">{student.benchmark_score}%</td>
                     </tr>
