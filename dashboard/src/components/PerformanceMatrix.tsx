@@ -271,36 +271,8 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(d.group_number))
+                    {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
-                  </td>
-                  <td className="border p-2 text-center">0.0</td>
-                  <td className="border p-2 text-center">0.0</td>
-                </tr>
-                {/* Blue Groups (0.5 points) */}
-                <tr>
-                  <td className="border p-2">Tests earning 0.5 points</td>
-                  <td className="border p-2 text-center">
-                    {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
-                  </td>
-                  <td className="border p-2 text-center">0.5</td>
-                  <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
-                  </td>
-                </tr>
-                {/* Green Groups (1.0 points) */}
-                <tr>
-                  <td className="border p-2">Tests earning 1.0 points</td>
-                  <td className="border p-2 text-center">
-                    {matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
-                  </td>
-                  <td className="border p-2 text-center">1.0</td>
-                  <td className="border p-2 text-center">
-                    {matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0).toFixed(1)}
                   </td>
                 </tr>
                 {/* Total Row */}
@@ -341,45 +313,25 @@ const PerformanceMatrix = () => {
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => 
-                      [36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                      [36, 35, 30, 29].includes(d.group_number)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
                 </tr>
-                {/* Blue Groups (0.5 points) */}
+                {/* Blue Groups (0.25 points) */}
                 <tr>
-                  <td className="border p-2">Tests earning 0.5 points</td>
+                  <td className="border p-2">Tests earning 0.25 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => 
-                      [29, 22, 15].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
-                  <td className="border p-2 text-center">0.5</td>
+                  <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
                     {(matrixData.filter(d => 
-                      [29, 22, 15].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
-                  </td>
-                </tr>
-                {/* Green Groups (1.0 points) */}
-                <tr>
-                  <td className="border p-2">Tests earning 1.0 points</td>
-                  <td className="border p-2 text-center">
-                    {matrixData.filter(d => 
-                      ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
-                  </td>
-                  <td className="border p-2 text-center">1.0</td>
-                  <td className="border p-2 text-center">
-                    {matrixData.filter(d => 
-                      ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0).toFixed(1)}
+                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
+                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.25).toFixed(1)}
                   </td>
                 </tr>
                 {/* Total Row */}
@@ -394,13 +346,9 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">
                     {(
                       matrixData.filter(d => 
-                        [29, 22, 15].includes(d.group_number) &&
+                        [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
                         ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                      ).reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => 
-                        ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
-                        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                      ).reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                      ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
                     ).toFixed(1)}
                   </td>
                 </tr>
@@ -409,51 +357,6 @@ const PerformanceMatrix = () => {
           </div>
         </div>
       </div>
-
-      {selectedCell && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
-             onClick={() => setSelectedCell(null)}>
-          <div className="bg-gray-800 p-4 rounded-lg max-w-2xl w-full mx-4" 
-               onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-2 text-white">Student Transition Details</h3>
-            <p className="text-white"><strong>From:</strong> {selectedCell.staar_level}</p>
-            <p className="text-white"><strong>To:</strong> {selectedCell.benchmark_level}</p>
-            <p className="text-white"><strong>Number of Students:</strong> {selectedCell.student_count}</p>
-            <div className="mt-4 max-h-96 overflow-y-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-left p-2 text-white">Name</th>
-                    <th className="text-left p-2 text-white">Grade</th>
-                    <th className="text-left p-2 text-white">Teacher</th>
-                    <th className="text-right p-2 text-white">STAAR</th>
-                    <th className="text-right p-2 text-white">Benchmark</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedStudents.map((student, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="p-2">{`${student['First Name']} ${student['Last Name']}`}</td>
-                      <td className="p-2">{student.Grade}</td>
-                      <td className="p-2">{student.Teacher}</td>
-                      <td className="p-2 text-right">{student.staar_score}%</td>
-                      <td className="p-2 text-right">{student.benchmark_score}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button 
-              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              onClick={() => setSelectedCell(null)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
-
-export default PerformanceMatrix;
+}
