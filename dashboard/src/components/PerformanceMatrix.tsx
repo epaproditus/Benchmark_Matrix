@@ -81,7 +81,10 @@ const PerformanceMatrix = () => {
         }),
       });
       const data = await response.json();
-      setSelectedStudents(data.students);
+      const filteredStudents = data.students.filter((student: Student) => 
+        selectedTeacher ? student.Teacher === selectedTeacher : true
+      );
+      setSelectedStudents(filteredStudents);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
