@@ -77,7 +77,7 @@ const PerformanceMatrix = () => {
     return matrixData.find(d => 
       d.staar_level === staarLevel && 
       d.benchmark_level === benchmarkLevel
-    ) || { student_count: 0, group_number: 0 };
+    ) || { staar_level: staarLevel, benchmark_level: benchmarkLevel, student_count: 0, group_number: 0 };
   };
 
   const getCellColor = (value: number): string => {

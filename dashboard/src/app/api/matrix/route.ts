@@ -13,16 +13,16 @@ export async function GET() {
         COUNT(*) as student_count,
         \`Group #\` as group_number
       FROM data
-      GROUP BY Combined_Performance, \`Group #\`
+      GROUP BY \`Combined Performance\`, \`Group #\`
     `);
     
     // Query to get total counts per STAAR level
     const [staarTotals] = await connection.execute(`
       SELECT 
-        SUBSTRING_INDEX(Combined_Performance, '|', 1) as level,
+        SUBSTRING_INDEX(\`Combined Performance\`, '|', 1) as level,
         COUNT(*) as total
       FROM data
-      GROUP BY SUBSTRING_INDEX(Combined_Performance, '|', 1)
+      GROUP BY SUBSTRING_INDEX(\`Combined Performance\`, '|', 1)
     `);
 
     await connection.end();
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         \`STAAR MA07 Percent Score\` as staar_score
       FROM data
       WHERE 
-        Combined_Performance = CONCAT(?, '|', ?)
+        \`Combined Performance\` = CONCAT(?, '|', ?)
         AND \`Group #\` = ?
     `, [staar_level, benchmark_level, group_number]);
     
