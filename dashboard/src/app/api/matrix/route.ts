@@ -26,7 +26,7 @@ export async function GET() {
       SELECT 
         \`2024 STAAR Performance\` as level,
         COUNT(*) as total
-      FROM your_table_name
+      FROM data
       GROUP BY \`2024 STAAR Performance\`
     `);
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         \`Campus\`,
         \`Local MA.08.822.E PcntScore\` as benchmark_score,
         \`STAAR MA07 Percent Score\` as staar_score
-      FROM your_table_name
+      FROM data
       WHERE 
         \`2024 STAAR Performance\` = ? 
         AND \`2024-25 Benchmark Performance\` = ?
