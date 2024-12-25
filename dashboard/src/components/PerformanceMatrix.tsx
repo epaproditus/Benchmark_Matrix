@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 
 interface Student {
+  Teacher: string; // Add this line
   'First Name': string;
   'Last Name': string;
   Grade: string;
@@ -190,7 +191,7 @@ const PerformanceMatrix = () => {
                   <tr>
                     <th className="text-left p-2 text-white">Name</th>
                     <th className="text-left p-2 text-white">Grade</th>
-                    <th className="text-left p-2 text-white">Campus</th>
+                    <th className="text-left p-2 text-white">Teacher</th>
                     <th className="text-right p-2 text-white">STAAR</th>
                     <th className="text-right p-2 text-white">Benchmark</th>
                   </tr>
@@ -200,7 +201,7 @@ const PerformanceMatrix = () => {
                     <tr key={index} className="border-t">
                       <td className="p-2">{`${student['First Name']} ${student['Last Name']}`}</td>
                       <td className="p-2">{student.Grade}</td>
-                      <td className="p-2">{student.Campus}</td>
+                      <td className="p-2">{student.Teacher}</td> // Assuming 'Teacher' is the correct key
                       <td className="p-2 text-right">{student.staar_score}%</td>
                       <td className="p-2 text-right">{student.benchmark_score}%</td>
                     </tr>
