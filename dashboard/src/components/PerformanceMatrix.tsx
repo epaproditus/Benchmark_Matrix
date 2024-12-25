@@ -151,10 +151,10 @@ const PerformanceMatrix = () => {
           <thead>
             <tr>
               <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
-                2023 STAAR
+                2024 STAAR
               </th>
-              <th className="border p-2 bg-yellow-300 text-center font-bold" colSpan={6}>
-                2023-24 Local Assessment
+              <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={6}>
+                Spring Benchmark
               </th>
             </tr>
             <tr>
