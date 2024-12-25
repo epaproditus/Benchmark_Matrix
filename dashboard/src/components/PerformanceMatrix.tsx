@@ -82,10 +82,10 @@ const PerformanceMatrix = () => {
 
   const getCellColor = (value: number): string => {
     if (value === 0) return 'bg-white';
-if (value < 5) return 'bg-red-500';
-if (value < 10) return 'bg-red-600';
-if (value < 20) return 'bg-blue-600';
-return 'bg-blue-700';
+    if (value < 5) return 'bg-red-500';
+    if (value < 10) return 'bg-red-600';
+    if (value < 20) return 'bg-blue-600';
+    return 'bg-blue-700';
   };
 
   if (loading) {
@@ -134,7 +134,7 @@ return 'bg-blue-700';
                       }}
                     >
                       <div className="font-bold">{cellData.student_count}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-white">
                         {cellData.student_count > 0 ? `(Group ${cellData.group_number})` : ''}
                       </div>
                     </td>
@@ -149,21 +149,21 @@ return 'bg-blue-700';
       {selectedCell && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
              onClick={() => setSelectedCell(null)}>
-          <div className="bg-white p-4 rounded-lg max-w-2xl w-full mx-4" 
+          <div className="bg-gray-800 p-4 rounded-lg max-w-2xl w-full mx-4" 
                onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-2">Student Transition Details</h3>
-            <p><strong>From:</strong> {selectedCell.staar_level}</p>
-            <p><strong>To:</strong> {selectedCell.benchmark_level}</p>
-            <p><strong>Number of Students:</strong> {selectedCell.student_count}</p>
+            <h3 className="text-lg font-bold mb-2 text-white">Student Transition Details</h3>
+            <p className="text-white"><strong>From:</strong> {selectedCell.staar_level}</p>
+            <p className="text-white"><strong>To:</strong> {selectedCell.benchmark_level}</p>
+            <p className="text-white"><strong>Number of Students:</strong> {selectedCell.student_count}</p>
             <div className="mt-4 max-h-96 overflow-y-auto">
               <table className="w-full">
                 <thead>
                   <tr>
-                    <th className="text-left p-2">Name</th>
-                    <th className="text-left p-2">Grade</th>
-                    <th className="text-left p-2">Campus</th>
-                    <th className="text-right p-2">STAAR</th>
-                    <th className="text-right p-2">Benchmark</th>
+                    <th className="text-left p-2 text-white">Name</th>
+                    <th className="text-left p-2 text-white">Grade</th>
+                    <th className="text-left p-2 text-white">Campus</th>
+                    <th className="text-right p-2 text-white">STAAR</th>
+                    <th className="text-right p-2 text-white">Benchmark</th>
                   </tr>
                 </thead>
                 <tbody>
