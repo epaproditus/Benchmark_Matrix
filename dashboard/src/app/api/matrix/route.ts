@@ -20,14 +20,22 @@ export async function GET() {
       SELECT DISTINCT \`Benchmark Teacher\` FROM data;
     `);
     
+    // Define the staar_level, benchmark_level, and group_number variables
+    const staar_level = 'some_value';
+    const benchmark_level = 'some_value';
+    const group_number = 'some_value';
+
     // Query to get total counts per STAAR level
     const [staarTotals] = await connection.execute(`
       SELECT 
         SUBSTRING_INDEX(\`Combined Performance\`, '|', 1) as level,
         COUNT(*) as total
       FROM data
+      WHERE 
+        \`Combined Performance\` = CONCAT(?, '|', ?)
+        AND \`Group #\` = ?
       GROUP BY SUBSTRING_INDEX(\`Combined Performance\`, '|', 1)
-    `);
+    `, [staar_level, benchmark_level, group_number]);
 
     await connection.end();
     
@@ -55,16 +63,19 @@ export async function POST(request: Request) {
         Grade,
         Campus,
         \`Benchmark PercentScore\` as benchmark_score,
-        \`STAAR MA07 Percent Score\` as staar_score
+        \`STAAR MA07 Percent Score\` as staar_score,
+        \`Benchmark Teacher\` as Teacher
       FROM data
       WHERE 
-        \`Combined Performance\` = CONCAT(?, '|', ?)
+        \`2024 STAAR Performance\` = ?
+        AND \`2024-25 Benchmark Performance\` = ?
         AND \`Group #\` = ?
     `, [staar_level, benchmark_level, group_number]);
-    
+
     await connection.end();
     
     return NextResponse.json({ students });
+
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
