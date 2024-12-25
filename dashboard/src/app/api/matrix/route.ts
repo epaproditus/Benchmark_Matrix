@@ -8,8 +8,8 @@ export async function GET() {
     // Query to get the transition matrix data
     const [matrixData] = await connection.execute(`
       SELECT 
-        SUBSTRING_INDEX(Combined_Performance, '|', 1) as staar_level,
-        SUBSTRING_INDEX(Combined_Performance, '|', -1) as benchmark_level,
+        \`2024 STAAR Performance\` as staar_level,
+        \`2024-25 Benchmark Performance\` as benchmark_level,
         COUNT(*) as student_count,
         \`Group #\` as group_number
       FROM data
