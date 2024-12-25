@@ -82,10 +82,10 @@ const PerformanceMatrix = () => {
 
   const getCellColor = (value: number): string => {
     if (value === 0) return 'bg-white';
-    if (value < 5) return 'bg-red-100';
-    if (value < 10) return 'bg-red-200';
-    if (value < 20) return 'bg-blue-200';
-    return 'bg-blue-300';
+if (value < 5) return 'bg-red-500';
+if (value < 10) return 'bg-red-600';
+if (value < 20) return 'bg-blue-600';
+return 'bg-blue-700';
   };
 
   if (loading) {
