@@ -13,7 +13,7 @@ export async function GET() {
         COUNT(*) as student_count,
         \`Group #\` as group_number
       FROM data
-      GROUP BY \`Combined Performance\`, \`Group #\`
+      GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
     `);
     
     // Query to get total counts per STAAR level
