@@ -198,6 +198,59 @@ const PerformanceMatrix = () => {
         </table>
       </div>
 
+      <div className="mt-8 overflow-x-auto">
+        <h2 className="text-xl font-bold mb-4">Top 2 Performance Levels Matrix</h2>
+        <table className="border-collapse w-full">
+          <thead>
+            <tr>
+              <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
+                2024 STAAR
+              </th>
+              <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={6}>
+                Spring Benchmark
+              </th>
+            </tr>
+            <tr>
+              {performanceLevels.map((level, index) => (
+                <th key={index} className="border p-2 text-sm min-w-[100px]">
+                  {level}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {performanceLevels.slice(0, 2).map((staarLevel, rowIndex) => (
+              <tr key={rowIndex}>
+                <td className="border p-2 font-medium min-w-[150px]">
+                  <div>{staarLevel}</div>
+                  <div className="text-sm text-gray-600">
+                    {staarTotals[staarLevel] || 0}
+                  </div>
+                </td>
+                {performanceLevels.map((benchmarkLevel, colIndex) => {
+                  const cellData = getCellData(staarLevel, benchmarkLevel);
+                  return (
+                    <td
+                      key={colIndex}
+                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
+                      onClick={() => {
+                        setSelectedCell(cellData);
+                        fetchStudentDetails(cellData);
+                      }}
+                    >
+                      <div className="font-bold">{cellData.student_count}</div>
+                      <div className="text-xs text-white">
+                        {cellData.student_count > 0 ? `(Group ${cellData.group_number})` : ''}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {selectedCell && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
              onClick={() => setSelectedCell(null)}>
