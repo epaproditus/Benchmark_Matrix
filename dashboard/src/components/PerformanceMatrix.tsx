@@ -96,7 +96,7 @@ const PerformanceMatrix = () => {
 
   const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
-    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 9, 17, 16, 10, 23].includes(groupNumber)) {
+    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 20, 9, 17, 16, 23].includes(groupNumber)) {
       return 'bg-red-200 text-red-800'; // Light red background with dark red text
     }
     if ([29, 22, 15].includes(groupNumber)) {
@@ -125,14 +125,19 @@ const PerformanceMatrix = () => {
         </select>
       </div>
       <div className="overflow-x-auto">
+        {selectedTeacher && (
+          <div className="mb-4">
+            <strong>Showing results for: {selectedTeacher}</strong>
+          </div>
+        )}
         <table className="border-collapse w-full">
           <thead>
             <tr>
               <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
-                2024 STAAR
+                2023 STAAR
               </th>
-              <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={6}>
-                Spring Benchmark
+              <th className="border p-2 bg-yellow-300 text-center font-bold" colSpan={6}>
+                2023-24 Local Assessment
               </th>
             </tr>
             <tr>
