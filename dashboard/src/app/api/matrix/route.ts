@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         \`Last Name\`,
         \`Grade\`,
         \`Campus\`,
-        \`Local MA.08.822.E PcntScore\` as benchmark_score,
+        \`Benchmark PercentScore\` as benchmark_score,
         \`STAAR MA07 Percent Score\` as staar_score
       FROM data
       WHERE 
