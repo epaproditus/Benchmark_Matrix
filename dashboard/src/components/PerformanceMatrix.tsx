@@ -99,7 +99,7 @@ const PerformanceMatrix = () => {
 
   const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
-    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 20, 9, 17, 16, 23].includes(groupNumber)) {
+    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(groupNumber)) {
       return 'bg-red-200 text-red-800'; // Light red background with dark red text
     }
     if ([29, 22, 15].includes(groupNumber)) {
