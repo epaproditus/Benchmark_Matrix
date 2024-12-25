@@ -23,6 +23,8 @@ const PerformanceMatrix = () => {
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teachers, setTeachers] = useState<string[]>([]);
+  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -35,6 +37,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchData();
+    fetchTeachers(); // Fetch teachers when component mounts
   }, []);
 
   const fetchData = async () => {
@@ -50,6 +53,16 @@ const PerformanceMatrix = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const response = await fetch('/api/teachers'); // Assuming there's an endpoint to fetch teachers
+      const data = await response.json();
+      setTeachers(data.teachers);
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
     }
   };
 
@@ -80,12 +93,15 @@ const PerformanceMatrix = () => {
     ) || { staar_level: staarLevel, benchmark_level: benchmarkLevel, student_count: 0, group_number: 0 };
   };
 
-  const getCellColor = (value: number): string => {
+  const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
-    if (value < 5) return 'bg-red-500';
-    if (value < 10) return 'bg-red-600';
-    if (value < 20) return 'bg-blue-600';
-    return 'bg-blue-700';
+    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 20, 9, 17, 16, 23].includes(groupNumber)) {
+      return 'bg-red-200 text-red-800'; // Light red background with dark red text
+    }
+    if ([29, 22, 15].includes(groupNumber)) {
+      return 'bg-blue-200 text-blue-800'; // Light blue background with dark blue text
+    }
+    return 'bg-green-200 text-green-800'; // Light green background with dark green text
   };
 
   if (loading) {
@@ -94,6 +110,19 @@ const PerformanceMatrix = () => {
 
   return (
     <div className="p-4">
+      <div className="mb-4">
+        <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
+        <select
+          id="teacher-select"
+          value={selectedTeacher || ''}
+          onChange={(e) => setSelectedTeacher(e.target.value)}
+        >
+          <option value="">All Teachers</option>
+          {teachers.map((teacher, index) => (
+            <option key={index} value={teacher}>{teacher}</option>
+          ))}
+        </select>
+      </div>
       <div className="overflow-x-auto">
         <table className="border-collapse w-full">
           <thead>
@@ -127,7 +156,7 @@ const PerformanceMatrix = () => {
                   return (
                     <td
                       key={colIndex}
-                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.student_count)} hover:opacity-75`}
+                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
                       onClick={() => {
                         setSelectedCell(cellData);
                         fetchStudentDetails(cellData);
