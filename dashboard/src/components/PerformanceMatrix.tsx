@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface Student {
   Teacher: string; // Add this line
@@ -249,6 +249,165 @@ const PerformanceMatrix = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Scoring Tables */}
+      <div className="mt-8">
+        <div className="grid grid-cols-2 gap-8">
+          {/* All Students Scoring Table */}
+          <div>
+            <h2 className="text-xl font-bold mb-4">All Students Scoring</h2>
+            <table className="border-collapse w-full">
+              <thead>
+                <tr>
+                  <th className="border p-2">Category</th>
+                  <th className="border p-2">Count</th>
+                  <th className="border p-2">Multiplier</th>
+                  <th className="border p-2">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Red Groups (0.0 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 0.0 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => [36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.0</td>
+                  <td className="border p-2 text-center">0.0</td>
+                </tr>
+                {/* Blue Groups (0.5 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 0.5 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.5</td>
+                  <td className="border p-2 text-center">
+                    {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                  </td>
+                </tr>
+                {/* Green Groups (1.0 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 1.0 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">1.0</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0).toFixed(1)}
+                  </td>
+                </tr>
+                {/* Total Row */}
+                <tr className="font-bold">
+                  <td className="border p-2">Total</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">-</td>
+                  <td className="border p-2 text-center">
+                    {(
+                      matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                        .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+                      matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
+                        .reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                    ).toFixed(1)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* HB4545 Students Scoring Table */}
+          <div>
+            <h2 className="text-xl font-bold mb-4">HB4545 Students Scoring</h2>
+            <table className="border-collapse w-full">
+              <thead>
+                <tr>
+                  <th className="border p-2">Category</th>
+                  <th className="border p-2">Count</th>
+                  <th className="border p-2">Multiplier</th>
+                  <th className="border p-2">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Red Groups (0.0 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 0.0 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => 
+                      [36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.0</td>
+                  <td className="border p-2 text-center">0.0</td>
+                </tr>
+                {/* Blue Groups (0.5 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 0.5 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => 
+                      [29, 22, 15].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.5</td>
+                  <td className="border p-2 text-center">
+                    {(matrixData.filter(d => 
+                      [29, 22, 15].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                  </td>
+                </tr>
+                {/* Green Groups (1.0 points) */}
+                <tr>
+                  <td className="border p-2">Tests earning 1.0 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => 
+                      ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">1.0</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => 
+                      ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0).toFixed(1)}
+                  </td>
+                </tr>
+                {/* Total Row */}
+                <tr className="font-bold">
+                  <td className="border p-2">Total</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => 
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">-</td>
+                  <td className="border p-2 text-center">
+                    {(
+                      matrixData.filter(d => 
+                        [29, 22, 15].includes(d.group_number) &&
+                        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                      ).reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+                      matrixData.filter(d => 
+                        ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number) &&
+                        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+                      ).reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                    ).toFixed(1)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {selectedCell && (
