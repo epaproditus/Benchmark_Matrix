@@ -1,26 +1,30 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-interface StudentData {
+interface Student {
+  'First Name': string;
+  'Last Name': string;
+  Grade: string;
+  Campus: string;
+  benchmark_score: number;
+  staar_score: number;
+}
+
+interface CellData {
   prev_level: string;
   current_level: string;
-  count: number;
-  group: string;
+  student_count: number;
+  group_number: number;
 }
 
 const PerformanceMatrix = () => {
-  const [selectedCell, setSelectedCell] = useState<StudentData | null>(null);
+  const [matrixData, setMatrixData] = useState<CellData[]>([]);
+  const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
+  const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
+  const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const rowLabels = [
-    { label: 'Low Does Not Meet GL', count: 74 },
-    { label: 'High Does Not Meet GL', count: 77 },
-    { label: 'Low Approaches GL', count: 35 },
-    { label: 'High Approaches GL', count: 19 },
-    { label: 'Meets GL', count: 26 },
-    { label: 'Masters GL', count: 7 }
-  ];
-
-  const colLabels = [
+  const performanceLevels = [
     'Low Does Not Meet GL',
     'High Does Not Meet GL',
     'Low Approaches GL',
@@ -29,15 +33,52 @@ const PerformanceMatrix = () => {
     'Masters GL'
   ];
 
-  // Sample data - replace with your actual data
-  const transitionData = [
-    [19, 36, 12, 6, 1, 0],
-    [11, 48, 41, 12, 4, 0],
-    [2, 11, 12, 7, 3, 0],
-    [0, 5, 1, 11, 2, 0],
-    [0, 0, 9, 8, 8, 1],
-    [0, 0, 0, 1, 4, 2]
-  ];
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch('/api/matrix');
+      const data = await response.json();
+      setMatrixData(data.matrixData);
+      setStaarTotals(data.staarTotals.reduce((acc: any, curr: any) => {
+        acc[curr.level] = curr.total;
+        return acc;
+      }, {}));
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
+    }
+  };
+
+  const fetchStudentDetails = async (cell: CellData) => {
+    try {
+      const response = await fetch('/api/matrix', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prev_level: cell.prev_level,
+          current_level: cell.current_level,
+          group_number: cell.group_number
+        }),
+      });
+      const data = await response.json();
+      setSelectedStudents(data.students);
+    } catch (error) {
+      console.error('Error fetching student details:', error);
+    }
+  };
+
+  const getCellData = (prevLevel: string, currentLevel: string) => {
+    return matrixData.find(d => 
+      d.prev_level === prevLevel && 
+      d.current_level === currentLevel
+    ) || { prev_level: prevLevel, current_level: currentLevel, student_count: 0, group_number: 0 };
+  };
 
   const getCellColor = (value: number): string => {
     if (value === 0) return 'bg-white';
@@ -46,6 +87,10 @@ const PerformanceMatrix = () => {
     if (value < 20) return 'bg-blue-200';
     return 'bg-blue-300';
   };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="p-4">
@@ -61,35 +106,40 @@ const PerformanceMatrix = () => {
               </th>
             </tr>
             <tr>
-              {colLabels.map((label, index) => (
+              {performanceLevels.map((level, index) => (
                 <th key={index} className="border p-2 text-sm min-w-[100px]">
-                  {label}
+                  {level}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rowLabels.map((row, rowIndex) => (
+            {performanceLevels.map((prevLevel, rowIndex) => (
               <tr key={rowIndex}>
                 <td className="border p-2 font-medium min-w-[150px]">
-                  <div>{row.label}</div>
-                  <div className="text-sm text-gray-600">{row.count}</div>
+                  <div>{prevLevel}</div>
+                  <div className="text-sm text-gray-600">
+                    {staarTotals[prevLevel] || 0}
+                  </div>
                 </td>
-                {transitionData[rowIndex].map((value, colIndex) => (
-                  <td
-                    key={colIndex}
-                    className={`border p-2 text-center cursor-pointer ${getCellColor(value)} hover:opacity-75`}
-                    onClick={() => setSelectedCell({
-                      prev_level: row.label,
-                      current_level: colLabels[colIndex],
-                      count: value,
-                      group: `Group ${rowIndex + colIndex}`
-                    })}
-                  >
-                    <div className="font-bold">{value}</div>
-                    <div className="text-xs text-gray-500">{`(Group ${rowIndex + colIndex})`}</div>
-                  </td>
-                ))}
+                {performanceLevels.map((currentLevel, colIndex) => {
+                  const cellData = getCellData(prevLevel, currentLevel);
+                  return (
+                    <td
+                      key={colIndex}
+                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.student_count)} hover:opacity-75`}
+                      onClick={() => {
+                        setSelectedCell(cellData);
+                        fetchStudentDetails(cellData);
+                      }}
+                    >
+                      <div className="font-bold">{cellData.student_count}</div>
+                      <div className="text-xs text-gray-500">
+                        {`(Group ${cellData.group_number})`}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -97,13 +147,38 @@ const PerformanceMatrix = () => {
       </div>
 
       {selectedCell && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" onClick={() => setSelectedCell(null)}>
-          <div className="bg-white p-4 rounded-lg max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
+             onClick={() => setSelectedCell(null)}>
+          <div className="bg-white p-4 rounded-lg max-w-2xl w-full mx-4" 
+               onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-2">Student Transition Details</h3>
             <p><strong>From:</strong> {selectedCell.prev_level}</p>
             <p><strong>To:</strong> {selectedCell.current_level}</p>
-            <p><strong>Number of Students:</strong> {selectedCell.count}</p>
-            <p><strong>Group:</strong> {selectedCell.group}</p>
+            <p><strong>Number of Students:</strong> {selectedCell.student_count}</p>
+            <div className="mt-4 max-h-96 overflow-y-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left p-2">Name</th>
+                    <th className="text-left p-2">Grade</th>
+                    <th className="text-left p-2">Campus</th>
+                    <th className="text-right p-2">STAAR</th>
+                    <th className="text-right p-2">Benchmark</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedStudents.map((student, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="p-2">{`${student['First Name']} ${student['Last Name']}`}</td>
+                      <td className="p-2">{student.Grade}</td>
+                      <td className="p-2">{student.Campus}</td>
+                      <td className="p-2 text-right">{student.staar_score}%</td>
+                      <td className="p-2 text-right">{student.benchmark_score}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <button 
               className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               onClick={() => setSelectedCell(null)}
