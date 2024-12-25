@@ -11,8 +11,8 @@ interface Student {
 }
 
 interface CellData {
-  prev_level: string;
-  current_level: string;
+  staar_level: string;
+  benchmark_level: string;
   student_count: number;
   group_number: number;
 }
@@ -25,12 +25,12 @@ const PerformanceMatrix = () => {
   const [loading, setLoading] = useState(true);
 
   const performanceLevels = [
-    'Low Does Not Meet GL',
-    'High Does Not Meet GL',
-    'Low Approaches GL',
-    'High Approaches GL',
-    'Meets GL',
-    'Masters GL'
+    'Did Not Meet Low',
+    'Did Not Meet High',
+    'Approaches Low',
+    'Approaches High',
+    'Meets',
+    'Masters'
   ];
 
   useEffect(() => {
@@ -61,8 +61,8 @@ const PerformanceMatrix = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prev_level: cell.prev_level,
-          current_level: cell.current_level,
+          staar_level: cell.staar_level,
+          benchmark_level: cell.benchmark_level,
           group_number: cell.group_number
         }),
       });
@@ -73,11 +73,11 @@ const PerformanceMatrix = () => {
     }
   };
 
-  const getCellData = (prevLevel: string, currentLevel: string) => {
+  const getCellData = (staarLevel: string, benchmarkLevel: string) => {
     return matrixData.find(d => 
-      d.prev_level === prevLevel && 
-      d.current_level === currentLevel
-    ) || { prev_level: prevLevel, current_level: currentLevel, student_count: 0, group_number: 0 };
+      d.staar_level === staarLevel && 
+      d.benchmark_level === benchmarkLevel
+    ) || { student_count: 0, group_number: 0 };
   };
 
   const getCellColor = (value: number): string => {
@@ -114,16 +114,16 @@ const PerformanceMatrix = () => {
             </tr>
           </thead>
           <tbody>
-            {performanceLevels.map((prevLevel, rowIndex) => (
+            {performanceLevels.map((staarLevel, rowIndex) => (
               <tr key={rowIndex}>
                 <td className="border p-2 font-medium min-w-[150px]">
-                  <div>{prevLevel}</div>
+                  <div>{staarLevel}</div>
                   <div className="text-sm text-gray-600">
-                    {staarTotals[prevLevel] || 0}
+                    {staarTotals[staarLevel] || 0}
                   </div>
                 </td>
-                {performanceLevels.map((currentLevel, colIndex) => {
-                  const cellData = getCellData(prevLevel, currentLevel);
+                {performanceLevels.map((benchmarkLevel, colIndex) => {
+                  const cellData = getCellData(staarLevel, benchmarkLevel);
                   return (
                     <td
                       key={colIndex}
@@ -135,7 +135,7 @@ const PerformanceMatrix = () => {
                     >
                       <div className="font-bold">{cellData.student_count}</div>
                       <div className="text-xs text-gray-500">
-                        {`(Group ${cellData.group_number})`}
+                        {cellData.student_count > 0 ? `(Group ${cellData.group_number})` : ''}
                       </div>
                     </td>
                   );
@@ -152,8 +152,8 @@ const PerformanceMatrix = () => {
           <div className="bg-white p-4 rounded-lg max-w-2xl w-full mx-4" 
                onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-2">Student Transition Details</h3>
-            <p><strong>From:</strong> {selectedCell.prev_level}</p>
-            <p><strong>To:</strong> {selectedCell.current_level}</p>
+            <p><strong>From:</strong> {selectedCell.staar_level}</p>
+            <p><strong>To:</strong> {selectedCell.benchmark_level}</p>
             <p><strong>Number of Students:</strong> {selectedCell.student_count}</p>
             <div className="mt-4 max-h-96 overflow-y-auto">
               <table className="w-full">

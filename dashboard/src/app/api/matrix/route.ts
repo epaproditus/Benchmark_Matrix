@@ -8,26 +8,21 @@ export async function GET() {
     // Query to get the transition matrix data
     const [matrixData] = await connection.execute(`
       SELECT 
-        \`2024 STAAR Performance\` as prev_level,
-        \`2024-25 Benchmark Performance\` as current_level,
+        SUBSTRING_INDEX(Combined_Performance, '|', 1) as staar_level,
+        SUBSTRING_INDEX(Combined_Performance, '|', -1) as benchmark_level,
         COUNT(*) as student_count,
-        \`Group #\` as group_number,
-        GROUP_CONCAT(CONCAT(
-          \`First Name\`, ' ', \`Last Name\`, 
-          ' (Grade: ', \`Grade\`, 
-          ', Campus: ', \`Campus\`, ')'
-        )) as student_names
+        \`Group #\` as group_number
       FROM data
-      GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
+      GROUP BY Combined_Performance, \`Group #\`
     `);
     
     // Query to get total counts per STAAR level
     const [staarTotals] = await connection.execute(`
       SELECT 
-        \`2024 STAAR Performance\` as level,
+        SUBSTRING_INDEX(Combined_Performance, '|', 1) as level,
         COUNT(*) as total
       FROM data
-      GROUP BY \`2024 STAAR Performance\`
+      GROUP BY SUBSTRING_INDEX(Combined_Performance, '|', 1)
     `);
 
     await connection.end();
@@ -42,26 +37,24 @@ export async function GET() {
   }
 }
 
-// Add an endpoint to get student details for a specific cell
 export async function POST(request: Request) {
   try {
-    const { prev_level, current_level, group_number } = await request.json();
+    const { staar_level, benchmark_level, group_number } = await request.json();
     const connection = await connectToDatabase();
     
     const [students] = await connection.execute(`
       SELECT 
         \`First Name\`,
         \`Last Name\`,
-        \`Grade\`,
-        \`Campus\`,
+        Grade,
+        Campus,
         \`Benchmark PercentScore\` as benchmark_score,
         \`STAAR MA07 Percent Score\` as staar_score
       FROM data
       WHERE 
-        \`2024 STAAR Performance\` = ? 
-        AND \`2024-25 Benchmark Performance\` = ?
+        Combined_Performance = CONCAT(?, '|', ?)
         AND \`Group #\` = ?
-    `, [prev_level, current_level, group_number]);
+    `, [staar_level, benchmark_level, group_number]);
     
     await connection.end();
     
