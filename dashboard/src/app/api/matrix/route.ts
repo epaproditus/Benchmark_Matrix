@@ -16,6 +16,10 @@ export async function GET() {
       GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
     `);
     
+    const [teacherNames] = await connection.execute(`
+      SELECT DISTINCT \`Benchmark Teacher\` FROM data;
+    `);
+    
     // Query to get total counts per STAAR level
     const [staarTotals] = await connection.execute(`
       SELECT 
@@ -27,10 +31,12 @@ export async function GET() {
 
     await connection.end();
     
-    return NextResponse.json({ 
+    return NextResponse.json({
       matrixData,
-      staarTotals
+      staarTotals,
+      teacherNames
     });
+
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
