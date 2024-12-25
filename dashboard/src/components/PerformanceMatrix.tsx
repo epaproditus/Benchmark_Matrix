@@ -130,6 +130,20 @@ const PerformanceMatrix = () => {
             <strong>Showing results for: {selectedTeacher}</strong>
           </div>
         )}
+        <div className="mb-4">
+          <button 
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            onClick={() => {
+              // Trigger filtering logic here
+              const filteredStudents = selectedStudents.filter(student => 
+                selectedTeacher ? student.Teacher === selectedTeacher : true
+              );
+              setSelectedStudents(filteredStudents);
+            }}
+          >
+            Filter Results
+          </button>
+        </div>
         <table className="border-collapse w-full">
           <thead>
             <tr>
