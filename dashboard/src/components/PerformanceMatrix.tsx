@@ -199,7 +199,7 @@ const PerformanceMatrix = () => {
       </div>
 
       <div className="mt-8 overflow-x-auto">
-        <h2 className="text-xl font-bold mb-4">Top 2 Performance Levels Matrix</h2>
+        <h2 className="text-xl font-bold mb-4">HB4545 Students</h2>
         <table className="border-collapse w-full">
           <thead>
             <tr>
