@@ -9,6 +9,7 @@ interface Student {
   Campus: string;
   benchmark_score: number;
   staar_score: number;
+  group_number: number; // Added group_number to match usage
 }
 
 interface CellData {
@@ -45,9 +46,14 @@ const PerformanceMatrix = () => {
     try {
       const response = await fetch('/api/matrix');
       const data = await response.json();
-      setMatrixData(data.matrixData);
-      setStaarTotals(data.staarTotals.reduce((acc: any, curr: any) => {
-        acc[curr.level] = curr.total;
+      const filteredMatrixData = selectedTeacher
+        ? data.matrixData.filter((d: CellData) => 
+            selectedStudents.some(student => student.Teacher === selectedTeacher && student.group_number === d.group_number)
+          )
+        : data.matrixData;
+      setMatrixData(filteredMatrixData);
+      setStaarTotals(filteredMatrixData.reduce((acc: any, curr: any) => {
+        acc[curr.staar_level] = (acc[curr.staar_level] || 0) + curr.student_count;
         return acc;
       }, {}));
       setLoading(false);
@@ -153,7 +159,7 @@ const PerformanceMatrix = () => {
               <div className="text-blue-600">B: 68-79</div>
               <div className="text-purple-600">C: 61-67</div>
               <div className="text-red-600">D: 55-60</div>
-              <div className="text-red-600">F: &lt;55</div>
+              <div className="text-red-600">F: &lt; 55</div>
             </div>
           </div>
         </div>
