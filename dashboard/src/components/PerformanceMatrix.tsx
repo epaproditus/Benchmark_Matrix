@@ -195,7 +195,17 @@ const PerformanceMatrix = () => {
           </div>
         )}
         {selectedCell && selectedStudents.length > 0 && (
-          <div className="mb-8 bg-black text-white p-4 rounded">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-black text-white p-6 rounded-lg max-w-6xl w-full max-h-[80vh] overflow-y-auto relative">
+              <button 
+                onClick={() => {
+                  setSelectedCell(null);
+                  setSelectedStudents([]);
+                }}
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+              >
+                ✕
+              </button>
             <h3 className="text-xl font-bold mb-4">
               Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
             </h3>
@@ -208,8 +218,8 @@ const PerformanceMatrix = () => {
                     <th className="border border-white p-2">Last Name</th>
                     <th className="border border-white p-2">Grade</th>
                     <th className="border border-white p-2">Campus</th>
-                    <th className="border border-white p-2">Benchmark Score</th>
-                    <th className="border border-white p-2">STAAR Score</th>
+                    <th className="border border-white p-2">Benchmark Score (Grade)</th>
+                    <th className="border border-white p-2">STAAR Score (Grade)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,12 +232,21 @@ const PerformanceMatrix = () => {
                         <td className="border border-white p-2">{student['Last Name']}</td>
                         <td className="border border-white p-2">{student.Grade}</td>
                         <td className="border border-white p-2">{student.Campus}</td>
-                        <td className="border border-white p-2">{student.benchmark_score}</td>
-                        <td className="border border-white p-2">{student.staar_score}</td>
+                        <td className="border border-white p-2">
+                          <span className={getGradeColor(student.benchmark_score)}>
+                            {student.benchmark_score} ({getGradeLabel(student.benchmark_score)})
+                          </span>
+                        </td>
+                        <td className="border border-white p-2">
+                          <span className={getGradeColor(student.staar_score)}>
+                            {student.staar_score} ({getGradeLabel(student.staar_score)})
+                          </span>
+                        </td>
                       </tr>
                     ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}
