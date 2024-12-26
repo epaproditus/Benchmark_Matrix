@@ -130,12 +130,13 @@ const PerformanceMatrix = () => {
 
   return (
     <div className="p-4">
-      <div className="mb-4">
+      <div className="mb-4 bg-black text-white p-4 rounded">
         <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
         <select
           id="teacher-select"
           value={selectedTeacher || ''}
           onChange={(e) => setSelectedTeacher(e.target.value)}
+          className="bg-black text-white border border-white rounded px-2 py-1"
         >
           <option value="">All Teachers</option>
           {teachers.map((teacher, index) => (
@@ -147,7 +148,7 @@ const PerformanceMatrix = () => {
       {/* New Section for Total Points Calculation */}
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
-        <div className="border p-4 bg-gray-100 rounded">
+        <div className="border p-4 bg-black text-white rounded">
           <p className="text-lg">
             Total Points: {(
               matrixData.filter(d => [29, 22, 15].includes(d.group_number))
