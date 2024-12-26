@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 
 interface Student {
-  Teacher: string; // Add this line
+  Teacher: string;
   'First Name': string;
   'Last Name': string;
   Grade: string;
@@ -38,7 +38,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchData();
-    fetchTeachers(); // Fetch teachers when component mounts
+    fetchTeachers();
   }, []);
 
   const fetchData = async () => {
@@ -100,12 +100,12 @@ const PerformanceMatrix = () => {
   const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
     if ([36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(groupNumber)) {
-      return 'bg-red-200 text-red-800'; // Light red background with dark red text
+      return 'bg-red-200 text-red-800';
     }
     if ([29, 22, 15].includes(groupNumber)) {
-      return 'bg-blue-200 text-blue-800'; // Light blue background with dark blue text
+      return 'bg-blue-200 text-blue-800';
     }
-    return 'bg-green-200 text-green-800'; // Light green background with dark green text
+    return 'bg-green-200 text-green-800';
   };
 
   if (loading) {
@@ -137,7 +137,6 @@ const PerformanceMatrix = () => {
           <button 
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             onClick={() => {
-              // Trigger filtering logic here
               const filteredStudents = selectedStudents.filter(student => 
                 selectedTeacher ? student.Teacher === selectedTeacher : true
               );
@@ -251,10 +250,8 @@ const PerformanceMatrix = () => {
         </table>
       </div>
 
-      {/* Scoring Tables */}
       <div className="mt-8">
         <div className="grid grid-cols-2 gap-8">
-          {/* All Students Scoring Table */}
           <div>
             <h2 className="text-xl font-bold mb-4">All Students Scoring</h2>
             <table className="border-collapse w-full">
@@ -267,7 +264,6 @@ const PerformanceMatrix = () => {
                 </tr>
               </thead>
               <tbody>
-                {/* Groups earning 0.0 points */}
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
@@ -277,7 +273,6 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
                 </tr>
-                {/* Groups earning 0.5 points */}
                 <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
@@ -290,7 +285,6 @@ const PerformanceMatrix = () => {
                       .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
                   </td>
                 </tr>
-                {/* Groups earning 1.0 points */}
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
@@ -303,7 +297,6 @@ const PerformanceMatrix = () => {
                       .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
-                {/* Total Row */}
                 <tr className="font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2 text-center">
@@ -323,7 +316,6 @@ const PerformanceMatrix = () => {
             </table>
           </div>
 
-          {/* HB4545 Students Scoring Table */}
           <div>
             <h2 className="text-xl font-bold mb-4">HB4545 Students Scoring</h2>
             <table className="border-collapse w-full">
@@ -336,7 +328,6 @@ const PerformanceMatrix = () => {
                 </tr>
               </thead>
               <tbody>
-                {/* Red Groups (0.0 points) */}
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
@@ -347,7 +338,6 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
                 </tr>
-                {/* Blue Groups (0.25 points) */}
                 <tr>
                   <td className="border p-2">Tests earning 0.25 points</td>
                   <td className="border p-2 text-center">
@@ -362,7 +352,6 @@ const PerformanceMatrix = () => {
                     ).reduce((sum, d) => sum + d.student_count, 0) * 0.25).toFixed(1)}
                   </td>
                 </tr>
-                {/* Total Row */}
                 <tr className="font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2 text-center">
@@ -388,3 +377,5 @@ const PerformanceMatrix = () => {
     </div>
   );
 }
+
+export default PerformanceMatrix;
