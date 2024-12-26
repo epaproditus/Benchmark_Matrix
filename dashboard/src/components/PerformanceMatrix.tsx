@@ -127,6 +127,40 @@ const PerformanceMatrix = () => {
           ))}
         </select>
       </div>
+
+      {/* New Section for Total Points Calculation */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
+        <div className="border p-4 bg-gray-100 rounded">
+          <p className="text-lg">
+            Total Points: {(
+              matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+              matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
+              matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
+                ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
+                .reduce((sum, d) => sum + d.student_count, 0) * 0.25
+            ).toFixed(1)}
+          </p>
+          <p className="text-lg">
+            Total Students: {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+          </p>
+          <p className="text-lg font-bold">
+            Average Points per Student: {(
+              (
+                matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                  .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+                matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                  .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
+                matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
+                  ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
+                  .reduce((sum, d) => sum + d.student_count, 0) * 0.25
+              ) / matrixData.reduce((sum, d) => sum + d.student_count, 0)
+            ).toFixed(2)}
+          </p>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         {selectedTeacher && (
           <div className="mb-4">
