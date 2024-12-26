@@ -108,6 +108,22 @@ const PerformanceMatrix = () => {
     return 'bg-green-200 text-green-800';
   };
 
+  const getGradeColor = (score: number): string => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 68) return 'text-blue-600';
+    if (score >= 61) return 'text-purple-600';
+    if (score >= 55) return 'text-red-600';
+    return 'text-red-600';
+  };
+
+  const getGradeLabel = (score: number): string => {
+    if (score >= 80) return 'A';
+    if (score >= 68) return 'B';
+    if (score >= 61) return 'C';
+    if (score >= 55) return 'D';
+    return 'F';
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -147,17 +163,27 @@ const PerformanceMatrix = () => {
             Total Students: {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
           </p>
           <p className="text-lg font-bold">
-            Average Points per Student: {(
-              (
-                matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                  .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
-                  .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
-                matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-                  ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-                  .reduce((sum, d) => sum + d.student_count, 0) * 0.25
-              ) / matrixData.reduce((sum, d) => sum + d.student_count, 0)
-            ).toFixed(2)}
+            Academic Growth Score:{' '}
+            {(() => {
+              const score = Math.round(
+                (
+                  (
+                    matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+                    matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
+                    matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 0.25
+                  ) / matrixData.reduce((sum, d) => sum + d.student_count, 0)
+                ) * 100
+              );
+              return (
+                <span className={getGradeColor(score)}>
+                  {score} ({getGradeLabel(score)})
+                </span>
+              );
+            })()}
           </p>
         </div>
       </div>
