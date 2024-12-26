@@ -1,41 +1,43 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/db';
+import { connectToDatabase } from '../../../lib/db';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const teacher = searchParams.get('teacher');
+  
   try {
     const connection = await connectToDatabase();
     
     // Query to get the transition matrix data
-    const [matrixData] = await connection.execute(`
+    const query = `
       SELECT 
         \`2024 STAAR Performance\` as staar_level,
         \`2024-25 Benchmark Performance\` as benchmark_level,
         COUNT(*) as student_count,
         \`Group #\` as group_number
       FROM data
+      ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
       GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
-    `);
+    `;
     
+    const [matrixData] = await connection.execute(
+      query,
+      teacher ? [teacher] : []
+    );
+
     const [teacherNames] = await connection.execute(`
       SELECT DISTINCT \`Benchmark Teacher\` FROM data;
     `);
     
-    // Define the staar_level, benchmark_level, and group_number variables
-    const staar_level = 'some_value';
-    const benchmark_level = 'some_value';
-    const group_number = 'some_value';
-
     // Query to get total counts per STAAR level
     const [staarTotals] = await connection.execute(`
       SELECT 
-        SUBSTRING_INDEX(\`Combined Performance\`, '|', 1) as level,
+        \`2024 STAAR Performance\` as level,
         COUNT(*) as total
       FROM data
-      WHERE 
-        \`Combined Performance\` = CONCAT(?, '|', ?)
-        AND \`Group #\` = ?
-      GROUP BY SUBSTRING_INDEX(\`Combined Performance\`, '|', 1)
-    `, [staar_level, benchmark_level, group_number]);
+      ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
+      GROUP BY \`2024 STAAR Performance\`
+    `, teacher ? [teacher] : []);
 
     await connection.end();
     
@@ -53,9 +55,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { staar_level, benchmark_level, group_number } = await request.json();
+    const { staar_level, benchmark_level, group_number, teacher } = await request.json();
     const connection = await connectToDatabase();
     
+    const whereClause = [
+      '`2024 STAAR Performance` = ?',
+      '`2024-25 Benchmark Performance` = ?',
+      '`Group #` = ?'
+    ];
+    const params = [staar_level, benchmark_level, group_number];
+
+    if (teacher) {
+      whereClause.push('`Benchmark Teacher` = ?');
+      params.push(teacher);
+    }
+
     const [students] = await connection.execute(`
       SELECT 
         \`First Name\`,
@@ -66,11 +80,8 @@ export async function POST(request: Request) {
         \`STAAR MA07 Percent Score\` as staar_score,
         \`Benchmark Teacher\` as Teacher
       FROM data
-      WHERE 
-        \`2024 STAAR Performance\` = ?
-        AND \`2024-25 Benchmark Performance\` = ?
-        AND \`Group #\` = ?
-    `, [staar_level, benchmark_level, group_number]);
+      WHERE ${whereClause.join(' AND ')}
+    `, params);
 
     await connection.end();
     

@@ -38,22 +38,25 @@ const PerformanceMatrix = () => {
   ];
 
   useEffect(() => {
-    fetchData();
     fetchTeachers();
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, [selectedTeacher]);
+
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/matrix');
+      setLoading(true);
+      const url = new URL('/api/matrix', window.location.origin);
+      if (selectedTeacher) {
+        url.searchParams.append('teacher', selectedTeacher);
+      }
+      const response = await fetch(url);
       const data = await response.json();
-      const filteredMatrixData = selectedTeacher
-        ? data.matrixData.filter((d: CellData) => 
-            selectedStudents.some(student => student.Teacher === selectedTeacher && student.group_number === d.group_number)
-          )
-        : data.matrixData;
-      setMatrixData(filteredMatrixData);
-      setStaarTotals(filteredMatrixData.reduce((acc: any, curr: any) => {
-        acc[curr.staar_level] = (acc[curr.staar_level] || 0) + curr.student_count;
+      setMatrixData(data.matrixData);
+      setStaarTotals(data.staarTotals.reduce((acc: any, curr: any) => {
+        acc[curr.level] = curr.total;
         return acc;
       }, {}));
       setLoading(false);
@@ -83,14 +86,12 @@ const PerformanceMatrix = () => {
         body: JSON.stringify({
           staar_level: cell.staar_level,
           benchmark_level: cell.benchmark_level,
-          group_number: cell.group_number
+          group_number: cell.group_number,
+          teacher: selectedTeacher || undefined
         }),
       });
       const data = await response.json();
-      const filteredStudents = data.students.filter((student: Student) => 
-        selectedTeacher ? student.Teacher === selectedTeacher : true
-      );
-      setSelectedStudents(filteredStudents);
+      setSelectedStudents(data.students);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
