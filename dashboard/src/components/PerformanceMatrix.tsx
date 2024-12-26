@@ -131,18 +131,32 @@ const PerformanceMatrix = () => {
   return (
     <div className="p-4">
       <div className="mb-4 bg-black text-white p-4 rounded">
-        <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
-        <select
-          id="teacher-select"
-          value={selectedTeacher || ''}
-          onChange={(e) => setSelectedTeacher(e.target.value)}
-          className="bg-black text-white border border-white rounded px-2 py-1"
-        >
-          <option value="">All Teachers</option>
-          {teachers.map((teacher, index) => (
-            <option key={index} value={teacher}>{teacher}</option>
-          ))}
-        </select>
+        <div className="flex justify-between items-start">
+          <div>
+            <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
+            <select
+              id="teacher-select"
+              value={selectedTeacher || ''}
+              onChange={(e) => setSelectedTeacher(e.target.value)}
+              className="bg-black text-white border border-white rounded px-2 py-1"
+            >
+              <option value="">All Teachers</option>
+              {teachers.map((teacher, index) => (
+                <option key={index} value={teacher}>{teacher}</option>
+              ))}
+            </select>
+          </div>
+          <div className="text-right">
+            <h3 className="font-bold mb-2">Academic Growth Score Scale:</h3>
+            <div className="grid grid-cols-5 gap-4">
+              <div className="text-green-600">A: 80+</div>
+              <div className="text-blue-600">B: 68-79</div>
+              <div className="text-purple-600">C: 61-67</div>
+              <div className="text-red-600">D: 55-60</div>
+              <div className="text-red-600">F: &lt;55</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* New Section for Total Points Calculation */}
@@ -218,8 +232,8 @@ const PerformanceMatrix = () => {
                     <th className="border border-white p-2">Last Name</th>
                     <th className="border border-white p-2">Grade</th>
                     <th className="border border-white p-2">Campus</th>
-                    <th className="border border-white p-2">Benchmark Score (Grade)</th>
-                    <th className="border border-white p-2">STAAR Score (Grade)</th>
+                    <th className="border border-white p-2">Benchmark Score</th>
+                    <th className="border border-white p-2">STAAR Score</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,16 +246,8 @@ const PerformanceMatrix = () => {
                         <td className="border border-white p-2">{student['Last Name']}</td>
                         <td className="border border-white p-2">{student.Grade}</td>
                         <td className="border border-white p-2">{student.Campus}</td>
-                        <td className="border border-white p-2">
-                          <span className={getGradeColor(student.benchmark_score)}>
-                            {student.benchmark_score} ({getGradeLabel(student.benchmark_score)})
-                          </span>
-                        </td>
-                        <td className="border border-white p-2">
-                          <span className={getGradeColor(student.staar_score)}>
-                            {student.staar_score} ({getGradeLabel(student.staar_score)})
-                          </span>
-                        </td>
+                        <td className="border border-white p-2">{student.benchmark_score}</td>
+                        <td className="border border-white p-2">{student.staar_score}</td>
                       </tr>
                     ))}
                 </tbody>
