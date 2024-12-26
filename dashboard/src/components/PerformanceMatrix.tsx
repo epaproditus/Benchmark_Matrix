@@ -99,7 +99,7 @@ const PerformanceMatrix = () => {
 
   const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
-    if ([36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23].includes(groupNumber)) {
+    if ([36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(groupNumber)) {
       return 'bg-red-200 text-red-800'; // Light red background with dark red text
     }
     if ([29, 22, 15].includes(groupNumber)) {
@@ -267,12 +267,40 @@ const PerformanceMatrix = () => {
                 </tr>
               </thead>
               <tbody>
-                {/* Red Groups (0.0 points) */}
+                {/* Groups earning 0.0 points */}
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.0</td>
+                  <td className="border p-2 text-center">0.0</td>
+                </tr>
+                {/* Groups earning 0.5 points */}
+                <tr>
+                  <td className="border p-2">Tests earning 0.5 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">0.5</td>
+                  <td className="border p-2 text-center">
+                    {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                  </td>
+                </tr>
+                {/* Groups earning 1.0 points */}
+                <tr>
+                  <td className="border p-2">Tests earning 1.0 points</td>
+                  <td className="border p-2 text-center">
+                    {matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
+                  </td>
+                  <td className="border p-2 text-center">1.0</td>
+                  <td className="border p-2 text-center">
+                    {(matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
                 {/* Total Row */}
@@ -286,7 +314,7 @@ const PerformanceMatrix = () => {
                     {(
                       matrixData.filter(d => [29, 22, 15].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => ![36, 30, 24, 18, 12, 6, 5, 4, 3, 2, 11, 10, 9, 17, 16, 23, 29, 22, 15].includes(d.group_number))
+                      matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 1.0
                     ).toFixed(1)}
                   </td>
