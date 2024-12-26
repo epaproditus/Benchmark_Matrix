@@ -194,19 +194,43 @@ const PerformanceMatrix = () => {
             <strong>Showing results for: {selectedTeacher}</strong>
           </div>
         )}
-        <div className="mb-4">
-          <button 
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            onClick={() => {
-              const filteredStudents = selectedStudents.filter(student => 
-                selectedTeacher ? student.Teacher === selectedTeacher : true
-              );
-              setSelectedStudents(filteredStudents);
-            }}
-          >
-            Filter Results
-          </button>
-        </div>
+        {selectedCell && selectedStudents.length > 0 && (
+          <div className="mb-8 bg-black text-white p-4 rounded">
+            <h3 className="text-xl font-bold mb-4">
+              Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="border border-white p-2">Teacher</th>
+                    <th className="border border-white p-2">First Name</th>
+                    <th className="border border-white p-2">Last Name</th>
+                    <th className="border border-white p-2">Grade</th>
+                    <th className="border border-white p-2">Campus</th>
+                    <th className="border border-white p-2">Benchmark Score</th>
+                    <th className="border border-white p-2">STAAR Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedStudents
+                    .filter(student => selectedTeacher ? student.Teacher === selectedTeacher : true)
+                    .map((student, index) => (
+                      <tr key={index} className="hover:bg-gray-800">
+                        <td className="border border-white p-2">{student.Teacher}</td>
+                        <td className="border border-white p-2">{student['First Name']}</td>
+                        <td className="border border-white p-2">{student['Last Name']}</td>
+                        <td className="border border-white p-2">{student.Grade}</td>
+                        <td className="border border-white p-2">{student.Campus}</td>
+                        <td className="border border-white p-2">{student.benchmark_score}</td>
+                        <td className="border border-white p-2">{student.staar_score}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         <table className="border-collapse w-full">
           <thead>
             <tr>
