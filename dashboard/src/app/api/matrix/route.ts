@@ -116,7 +116,7 @@ export async function POST(request: Request) {
           Campus,
           \`Benchmark PercentScore\` as benchmark_score,
           \`STAAR MA07 Percent Score\` as staar_score,
-          \`Local Id\` as id, // Selecting Local Id as the student ID
+          \`Local Id\` as id,
           \`Benchmark Teacher\` as Teacher
         FROM (
           SELECT * FROM data
