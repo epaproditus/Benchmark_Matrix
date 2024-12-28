@@ -123,7 +123,7 @@ export async function POST(request: Request) {
             Campus,
             \`Benchmark PercentScore\` as benchmark_score,
             \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as id,
+            \`Local Id\` as local_id,
             \`Benchmark Teacher\` as Teacher
           FROM (
             SELECT * FROM data
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
             Campus,
             \`Benchmark PercentScore\` as benchmark_score,
             \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as id,
+            \`Local Id\` as local_id,
             \`Benchmark Teacher\` as Teacher
           FROM ${tableName}
           ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
             Campus,
             \`Benchmark PercentScore\` as benchmark_score,
             \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as id,
+            \`Local Id\` as local_id,
             \`Benchmark Teacher\` as Teacher
           FROM (
             SELECT * FROM data
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
             Campus,
             \`Benchmark PercentScore\` as benchmark_score,
             \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as id,
+            \`Local Id\` as local_id,
             \`Benchmark Teacher\` as Teacher
           FROM ${tableName}
           WHERE ${whereClause.join(' AND ')}

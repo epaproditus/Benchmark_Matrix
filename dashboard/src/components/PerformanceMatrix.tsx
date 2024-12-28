@@ -35,6 +35,7 @@ const PerformanceMatrix = () => {
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
   const [studentAssessments, setStudentAssessments] = useState<{[key: string]: Assessment[]}>({});
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -93,6 +94,20 @@ const PerformanceMatrix = () => {
       setTeachers(data.teachers);
     } catch (error) {
       console.error('Error fetching teachers:', error);
+    }
+  };
+
+  const fetchStudentAssessments = async (localId: string) => {
+    try {
+      const assessmentResponse = await fetch(`/api/assessments?localId=${localId}`);
+      const assessmentData = await assessmentResponse.json();
+      setStudentAssessments(prev => ({
+        ...prev,
+        [localId]: assessmentData.assessments
+      }));
+      setSelectedStudentId(localId);
+    } catch (error) {
+      console.error('Error fetching student assessments:', error);
     }
   };
 
@@ -362,7 +377,14 @@ const PerformanceMatrix = () => {
                   <tbody>
                     {selectedStudents.map((student, index) => (
                       <tr key={index} className="hover:bg-gray-800">
-                        <td className="border border-white p-2">{student['First Name']}</td>
+                        <td className="border border-white p-2">
+                          <button 
+                            onClick={() => fetchStudentAssessments(student.local_id)}
+                            className="text-blue-400 hover:text-blue-300 underline"
+                          >
+                            {student['First Name']}
+                          </button>
+                        </td>
                         <td className="border border-white p-2">{student['Last Name']}</td>
                         <td className="border border-white p-2">{student.Grade}</td>
                         <td className="border border-white p-2">{student.staar_score}</td>
@@ -373,12 +395,12 @@ const PerformanceMatrix = () => {
                   </tbody>
                 </table>
 
-                {selectedStudents.map((student) => {
+                {selectedStudentId && selectedStudents.map((student) => {
+                  if (student.local_id !== selectedStudentId) return null;
                   const assessments = studentAssessments[student.local_id] || [];
-                  if (assessments.length === 0) return null;
 
                   return (
-                    <div key={student.local_id} className="mt-4">
+                    <div key={student.local_id} className="mt-4 bg-gray-900 p-4 rounded">
                       <h4 className="font-bold mb-2">
                         {student['First Name']} {student['Last Name']}&apos;s Assessments
                       </h4>
