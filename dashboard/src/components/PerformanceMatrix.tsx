@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 
 interface Student {
-  id: number; // Added id property for student identification
+  id: number;
+  local_id: string;
   Teacher: string; 
   'First Name': string;
   'Last Name': string;
@@ -10,7 +11,15 @@ interface Student {
   Campus: string;
   benchmark_score: number;
   staar_score: number;
-  group_number: number; // Added group_number to match usage
+  group_number: number;
+}
+
+interface Assessment {
+  id: number;
+  local_id: string;
+  assessment_name: string;
+  score: number;
+  date: string;
 }
 
 interface CellData {
@@ -25,6 +34,7 @@ const PerformanceMatrix = () => {
   const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
+  const [studentAssessments, setStudentAssessments] = useState<{[key: string]: Assessment[]}>({});
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -102,8 +112,19 @@ const PerformanceMatrix = () => {
         }),
       });
       const data = await response.json();
-      console.log('Fetched students:', data.students); // Log the fetched student data
+      console.log('Fetched students:', data.students);
       setSelectedStudents(data.students);
+      
+      // Fetch assessments for each student
+      const assessments: {[key: string]: Assessment[]} = {};
+      for (const student of data.students) {
+        if (student.local_id) {
+          const assessmentResponse = await fetch(`/api/assessments?localId=${student.local_id}`);
+          const assessmentData = await assessmentResponse.json();
+          assessments[student.local_id] = assessmentData.assessments;
+        }
+      }
+      setStudentAssessments(assessments);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
@@ -326,20 +347,20 @@ const PerformanceMatrix = () => {
               Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="border border-white p-2">First Name</th>
-                    <th className="border border-white p-2">Last Name</th>
-                    <th className="border border-white p-2">Grade</th>
-                    <th className="border border-white p-2">STAAR Score</th>
-                    <th className="border border-white p-2">Benchmark Score</th>
-                    <th className="border border-white p-2">Teacher</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedStudents
-                    .map((student, index) => (
+              <div className="space-y-6">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="border border-white p-2">First Name</th>
+                      <th className="border border-white p-2">Last Name</th>
+                      <th className="border border-white p-2">Grade</th>
+                      <th className="border border-white p-2">STAAR Score</th>
+                      <th className="border border-white p-2">Benchmark Score</th>
+                      <th className="border border-white p-2">Teacher</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedStudents.map((student, index) => (
                       <tr key={index} className="hover:bg-gray-800">
                         <td className="border border-white p-2">{student['First Name']}</td>
                         <td className="border border-white p-2">{student['Last Name']}</td>
@@ -349,8 +370,42 @@ const PerformanceMatrix = () => {
                         <td className="border border-white p-2">{student.Teacher}</td>
                       </tr>
                     ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+
+                {selectedStudents.map((student) => {
+                  const assessments = studentAssessments[student.local_id] || [];
+                  if (assessments.length === 0) return null;
+
+                  return (
+                    <div key={student.local_id} className="mt-4">
+                      <h4 className="font-bold mb-2">
+                        {student['First Name']} {student['Last Name']}&apos;s Assessments
+                      </h4>
+                      <table className="w-full">
+                        <thead>
+                          <tr>
+                            <th className="border border-white p-2">Assessment Name</th>
+                            <th className="border border-white p-2">Score</th>
+                            <th className="border border-white p-2">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assessments.map((assessment, index) => (
+                            <tr key={index} className="hover:bg-gray-800">
+                              <td className="border border-white p-2">{assessment.assessment_name}</td>
+                              <td className="border border-white p-2">{assessment.score}</td>
+                              <td className="border border-white p-2">
+                                {new Date(assessment.date).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
               </div>
             </div>
           </div>
