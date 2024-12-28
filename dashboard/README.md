@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Benchmark Matrix Dashboard
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app). The Benchmark Matrix Dashboard provides a comprehensive interface for visualizing and analyzing performance metrics.
 
 ## Getting Started
 
@@ -17,6 +19,22 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+## Features
+
+- **Performance Metrics Visualization**: View and analyze various performance metrics through interactive charts and graphs.
+- **API Integration**: Access performance data through RESTful API endpoints.
+- **Responsive Design**: The dashboard is designed to be fully responsive, ensuring a seamless experience on all devices.
+
+## API Endpoints
+
+### Teachers API
+- **GET /api/teachers**: Retrieve a list of teachers and their performance metrics.
+
+### Matrix API
+- **GET /api/matrix**: Fetch performance data in a matrix format for detailed analysis.
+
+## Font Optimization
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
