@@ -307,7 +307,7 @@ const PerformanceMatrix = () => {
                   {level}
                 </th>
               ))}
-              <th className="border p-2 text-sm min-w-[100px] bg-gray-100">Row Total</th>
+              <th className="border p-2 text-sm min-w-[100px] bg-black text-white">Row Total</th>
             </tr>
           </thead>
           <tbody>
@@ -343,24 +343,24 @@ const PerformanceMatrix = () => {
                       </td>
                     );
                   })}
-                  <td className="border p-2 text-center font-bold bg-gray-100">{rowTotal}</td>
+                  <td className="border p-2 text-center font-bold bg-black text-white">{rowTotal}</td>
                 </tr>
               );
             })}
           </tbody>
           <tfoot>
             <tr className="font-bold">
-              <td className="border p-2 bg-gray-100">Column Total</td>
+              <td className="border p-2 bg-black text-white">Column Total</td>
               {performanceLevels.map((_, colIndex) => {
                 const colTotal = performanceLevels.reduce((sum, staarLevel) => {
                   const cellData = getCellData(staarLevel, performanceLevels[colIndex]);
                   return sum + cellData.student_count;
                 }, 0);
                 return (
-                  <td key={colIndex} className="border p-2 text-center bg-gray-100">{colTotal}</td>
+                  <td key={colIndex} className="border p-2 text-center bg-black text-white">{colTotal}</td>
                 );
               })}
-              <td className="border p-2 text-center bg-gray-200">
+              <td className="border p-2 text-center bg-black text-white">
                 {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
               </td>
             </tr>
