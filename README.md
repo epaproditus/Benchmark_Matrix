@@ -1,13 +1,9 @@
 # School Progress: Academic Growth Dashboard
 
 ## Description
-The School Progress, Part A: Academic Growth provides an opportunity for campuses to receive credit for STAAR results in reading/language arts (RLA) and mathematics that show annual growth and, if applicable, demonstrate accelerated learning.
+The project creates a Node.js matrix dashboard that allows for visualizing the data from STAAR scores and benchmark scores and is linked to a MySQL database.
 
-Annual Growth indicates the amount of improvement or growth a student has made from year to year. For STAAR assessments (with or without accommodations), annual growth is measured by a transition table. Individual student growth is calculated as the change between Low Did Not Meet Grade Level, High Did Not Meet Grade Level, Low Approaches Grade Level, High Approaches Grade Level, Meets Grade Level, and Masters Grade Level performance from the prior year to the current year.
-
-Accelerated Learning is measured for students who earned Did Not Meet Grade Level in the prior year and were accelerated to Approaches Grade Level or above in the current year.
-
-The Academic Growth component of the School Progress domain calculation uses a methodology in which scores are calculated based on students' level of performance for STAAR assessments as reported in the consolidated accountability file (CAF). The data is sourced from STAAR scores from the previous year and benchmark scores, which are stored in a MySQL database. See Appendix H for more information.
+![An example of a Matrix taken from TEA 2024 Accounatability Manual ](matrix.png)
 
 ## Features
 - Interactive performance matrix visualization
