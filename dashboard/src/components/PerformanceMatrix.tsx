@@ -235,25 +235,22 @@ const PerformanceMatrix = () => {
         </div>
         
         {/* Display filtered student as a line */}
-        {searchResults.length === 1 && (
+        {searchResults.length > 0 && (
           <div className="bg-black text-white p-4 rounded border border-gray-700">
+            <h4 className="font-bold">Matching Students:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="flex flex-col">
-                <span className="text-gray-400">Student</span>
-                <span>{searchResults[0]['First Name']} {searchResults[0]['Last Name']}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-gray-400">Teacher & Grade</span>
-                <span>{searchResults[0].Teacher} - Grade {searchResults[0].Grade}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-gray-400">Benchmark Score</span>
-                <span>{searchResults[0].benchmark_score}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-gray-400">STAAR Score</span>
-                <span>{searchResults[0].staar_score}</span>
-              </div>
+              {searchResults.map((student, index) => (
+                <div key={index} className="flex flex-col">
+                  <span className="text-gray-400">Student</span>
+                  <span>{student['First Name']} {student['Last Name']}</span>
+                  <span className="text-gray-400">Teacher & Grade</span>
+                  <span>{student.Teacher} - Grade {student.Grade}</span>
+                  <span className="text-gray-400">Benchmark Score</span>
+                  <span>{student.benchmark_score}</span>
+                  <span className="text-gray-400">STAAR Score</span>
+                  <span>{student.staar_score}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
