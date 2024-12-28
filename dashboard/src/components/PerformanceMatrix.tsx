@@ -203,14 +203,9 @@ const PerformanceMatrix = () => {
           type="text"
           id="search"
           placeholder="Enter name or ID"
-          onChange={(e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filteredStudents = selectedStudents.filter(student => 
-              student['First Name'].toLowerCase().includes(searchTerm) ||
-              student['Last Name'].toLowerCase().includes(searchTerm) ||
-              student.id.toString().includes(searchTerm) // Assuming 'id' is a property in the Student interface
-            );
-            setSelectedStudents(filteredStudents);
+          onChange={() => {
+            // Force re-render by updating a state
+            setSelectedStudents([...selectedStudents]);
           }}
           className="bg-black text-white border border-white rounded px-2 py-1"
         />
@@ -295,7 +290,17 @@ const PerformanceMatrix = () => {
                 </thead>
                 <tbody>
                   {selectedStudents
-                    .filter(student => selectedTeacher ? student.Teacher === selectedTeacher : true)
+                    .filter(student => {
+                      const searchTerm = (document.getElementById('search') as HTMLInputElement)?.value.toLowerCase() || '';
+                      return (
+                        (selectedTeacher ? student.Teacher === selectedTeacher : true) &&
+                        (searchTerm ? 
+                          student['First Name'].toLowerCase().includes(searchTerm) ||
+                          student['Last Name'].toLowerCase().includes(searchTerm) ||
+                          student.id.toString().includes(searchTerm)
+                          : true)
+                      );
+                    })
                     .map((student, index) => (
                       <tr key={index} className="hover:bg-gray-800">
                         <td className="border border-white p-2">{student.Teacher}</td>
