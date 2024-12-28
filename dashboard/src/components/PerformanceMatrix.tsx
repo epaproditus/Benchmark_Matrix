@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Student {
   Teacher: string;
@@ -27,6 +27,7 @@ const PerformanceMatrix = () => {
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<string>('8');
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -43,7 +44,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTeacher]);
+  }, [selectedTeacher, selectedGrade]);
 
   const fetchData = async () => {
     try {
@@ -52,10 +53,11 @@ const PerformanceMatrix = () => {
       if (selectedTeacher) {
         url.searchParams.append('teacher', selectedTeacher);
       }
+      url.searchParams.append('grade', selectedGrade);
       const response = await fetch(url);
       const data = await response.json();
       setMatrixData(data.matrixData);
-      setStaarTotals(data.staarTotals.reduce((acc: any, curr: any) => {
+      setStaarTotals(data.staarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
         acc[curr.level] = curr.total;
         return acc;
       }, {}));
@@ -87,7 +89,8 @@ const PerformanceMatrix = () => {
           staar_level: cell.staar_level,
           benchmark_level: cell.benchmark_level,
           group_number: cell.group_number,
-          teacher: selectedTeacher || undefined
+          teacher: selectedTeacher || undefined,
+          grade: selectedGrade
         }),
       });
       const data = await response.json();
@@ -139,19 +142,33 @@ const PerformanceMatrix = () => {
     <div className="p-4">
       <div className="mb-4 bg-black text-white p-4 rounded">
         <div className="flex justify-between items-start">
-          <div>
-            <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
-            <select
-              id="teacher-select"
-              value={selectedTeacher || ''}
-              onChange={(e) => setSelectedTeacher(e.target.value)}
-              className="bg-black text-white border border-white rounded px-2 py-1"
-            >
-              <option value="">All Teachers</option>
-              {teachers.map((teacher, index) => (
-                <option key={index} value={teacher}>{teacher}</option>
-              ))}
-            </select>
+          <div className="flex gap-4">
+            <div>
+              <label htmlFor="grade-select" className="mr-2">Grade Level:</label>
+              <select
+                id="grade-select"
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="bg-black text-white border border-white rounded px-2 py-1"
+              >
+                <option value="7">7th Grade</option>
+                <option value="8">8th Grade</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
+              <select
+                id="teacher-select"
+                value={selectedTeacher || ''}
+                onChange={(e) => setSelectedTeacher(e.target.value)}
+                className="bg-black text-white border border-white rounded px-2 py-1"
+              >
+                <option value="">All Teachers</option>
+                {teachers.map((teacher, index) => (
+                  <option key={index} value={teacher}>{teacher}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="text-right">
             <h3 className="font-bold mb-2">Academic Growth Score Scale:</h3>

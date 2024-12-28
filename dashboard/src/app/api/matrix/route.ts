@@ -4,6 +4,8 @@ import { connectToDatabase } from '../../../lib/db';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const teacher = searchParams.get('teacher');
+  const grade = searchParams.get('grade') || '8';
+  const tableName = grade === '7' ? 'data7' : 'data';
   
   try {
     const connection = await connectToDatabase();
@@ -15,7 +17,7 @@ export async function GET(request: Request) {
         \`2024-25 Benchmark Performance\` as benchmark_level,
         COUNT(*) as student_count,
         \`Group #\` as group_number
-      FROM data
+      FROM ${tableName}
       ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
       GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
     `;
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
     );
 
     const [teacherNames] = await connection.execute(`
-      SELECT DISTINCT \`Benchmark Teacher\` FROM data;
+      SELECT DISTINCT \`Benchmark Teacher\` FROM ${tableName};
     `);
     
     // Query to get total counts per STAAR level
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
       SELECT 
         \`2024 STAAR Performance\` as level,
         COUNT(*) as total
-      FROM data
+      FROM ${tableName}
       ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
       GROUP BY \`2024 STAAR Performance\`
     `, teacher ? [teacher] : []);
@@ -55,8 +57,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { staar_level, benchmark_level, group_number, teacher } = await request.json();
+    const { staar_level, benchmark_level, group_number, teacher, grade } = await request.json();
     const connection = await connectToDatabase();
+    const tableName = grade === '7' ? 'data7' : 'data';
     
     const whereClause = [
       '`2024 STAAR Performance` = ?',
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
         \`Benchmark PercentScore\` as benchmark_score,
         \`STAAR MA07 Percent Score\` as staar_score,
         \`Benchmark Teacher\` as Teacher
-      FROM data
+      FROM ${tableName}
       WHERE ${whereClause.join(' AND ')}
     `, params);
 
