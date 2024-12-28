@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 
 interface Student {
-  Teacher: string;
+  id: number; // Added id property for student identification
+  Teacher: string; 
   'First Name': string;
   'Last Name': string;
   Grade: string;
@@ -194,6 +195,26 @@ const PerformanceMatrix = () => {
         </div>
       </div>
 
+      {/* Search Functionality */}
+      <div className="mb-4">
+        <label htmlFor="search" className="mr-2">Search by Name or ID:</label>
+        <input
+          type="text"
+          id="search"
+          placeholder="Enter name or ID"
+          onChange={(e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredStudents = selectedStudents.filter(student => 
+              student['First Name'].toLowerCase().includes(searchTerm) ||
+              student['Last Name'].toLowerCase().includes(searchTerm) ||
+              student.id.toString().includes(searchTerm) // Assuming 'id' is a property in the Student interface
+            );
+            setSelectedStudents(filteredStudents);
+          }}
+          className="bg-black text-white border border-white rounded px-2 py-1"
+        />
+      </div>
+      
       {/* New Section for Total Points Calculation */}
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
