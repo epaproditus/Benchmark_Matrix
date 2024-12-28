@@ -3,7 +3,7 @@
 ## Description
 The project creates a Node.js matrix dashboard that allows for visualizing the data from STAAR scores and benchmark scores and is linked to a MySQL database.
 
-
+![An example of a Matrix taken from TEA 2024 Accounatability Manual ](matrix.png)
 
 ## Features
 - Interactive performance matrix visualization
