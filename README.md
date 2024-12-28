@@ -1,54 +1,46 @@
-# Benchmark Matrix Dashboard
+# School Progress: Academic Growth Dashboard
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app). The Benchmark Matrix Dashboard provides a comprehensive interface for visualizing and analyzing performance metrics.
+## Description
+The School Progress, Part A: Academic Growth provides an opportunity for campuses to receive credit for STAAR results in reading/language arts (RLA) and mathematics that show annual growth and, if applicable, demonstrate accelerated learning.
 
-## Getting Started
+Annual Growth indicates the amount of improvement or growth a student has made from year to year. For STAAR assessments (with or without accommodations), annual growth is measured by a transition table. Individual student growth is calculated as the change between Low Did Not Meet Grade Level, High Did Not Meet Grade Level, Low Approaches Grade Level, High Approaches Grade Level, Meets Grade Level, and Masters Grade Level performance from the prior year to the current year.
 
-First, run the development server:
+Accelerated Learning is measured for students who earned Did Not Meet Grade Level in the prior year and were accelerated to Approaches Grade Level or above in the current year.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The Academic Growth component of the School Progress domain calculation uses a methodology in which scores are calculated based on students' level of performance for STAAR assessments as reported in the consolidated accountability file (CAF). The data is sourced from STAAR scores from the previous year and benchmark scores, which are stored in a MySQL database. See Appendix H for more information.
 
 ## Features
+- Interactive performance matrix visualization
+- Data filtering and sorting capabilities
+- User-friendly interface
+- Responsive design for mobile and desktop
+- API integration for real-time data updates
 
-- **Performance Metrics Visualization**: View and analyze various performance metrics through interactive charts and graphs.
-- **API Integration**: Access performance data through RESTful API endpoints.
-- **Responsive Design**: The dashboard is designed to be fully responsive, ensuring a seamless experience on all devices.
+## Installation
+To get started with the School Progress Dashboard, follow these steps:
 
-## API Endpoints
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/school-progress-dashboard.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd school-progress-dashboard
+   ```
+3. Install the dependencies:
+   ```bash
+   npm install
+   ```
 
-### Teachers API
-- **GET /api/teachers**: Retrieve a list of teachers and their performance metrics.
+## Usage
+To run the application locally, use the following command:
+```bash
+npm run dev
+```
+Open your browser and navigate to `http://localhost:3000` to view the dashboard.
 
-### Matrix API
-- **GET /api/matrix**: Fetch performance data in a matrix format for detailed analysis.
+## Contributing
+Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
 
-## Font Optimization
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+This project is licensed under the MIT License. See the LICENSE file for more details.
