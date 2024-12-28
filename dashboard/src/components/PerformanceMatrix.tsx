@@ -101,6 +101,7 @@ const PerformanceMatrix = () => {
         }),
       });
       const data = await response.json();
+      console.log('Fetched students:', data.students); // Log the fetched student data
       setSelectedStudents(data.students);
     } catch (error) {
       console.error('Error fetching student details:', error);
@@ -189,7 +190,7 @@ const PerformanceMatrix = () => {
               <div className="text-blue-600">B: 68-79</div>
               <div className="text-purple-600">C: 61-67</div>
               <div className="text-red-600">D: 55-60</div>
-              <div className="text-red-600">F: &lt;55</div>
+              <div className="text-red-600">F: 55</div>
             </div>
           </div>
         </div>
