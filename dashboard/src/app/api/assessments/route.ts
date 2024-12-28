@@ -13,7 +13,15 @@ export async function GET(request: Request) {
     const connection = await connectToDatabase();
     
     const [assessments] = await connection.execute(
-      'SELECT * FROM student_assessments WHERE local_id = ?',
+      `SELECT 
+        id,
+        local_id,
+        assessment_name,
+        score,
+        DATE_FORMAT(date, '%Y-%m-%d') as date
+      FROM student_assessments 
+      WHERE local_id = ?
+      ORDER BY date DESC`,
       [localId]
     );
 

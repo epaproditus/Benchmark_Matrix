@@ -36,6 +36,7 @@ const PerformanceMatrix = () => {
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
   const [studentAssessments, setStudentAssessments] = useState<{[key: string]: Assessment[]}>({});
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [showAssessments, setShowAssessments] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -379,7 +380,10 @@ const PerformanceMatrix = () => {
                       <tr key={index} className="hover:bg-gray-800">
                         <td className="border border-white p-2">
                           <button 
-                            onClick={() => fetchStudentAssessments(student.local_id)}
+                            onClick={() => {
+                              fetchStudentAssessments(student.local_id);
+                              setShowAssessments(true);
+                            }}
                             className="text-blue-400 hover:text-blue-300 underline"
                           >
                             {student['First Name']}
@@ -394,16 +398,32 @@ const PerformanceMatrix = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-                {selectedStudentId && selectedStudents.map((student) => {
-                  if (student.local_id !== selectedStudentId) return null;
-                  const assessments = studentAssessments[student.local_id] || [];
+        {/* Assessment Modal */}
+        {showAssessments && selectedStudentId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-black text-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto relative">
+              <button 
+                onClick={() => setShowAssessments(false)}
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+              >
+                ✕
+              </button>
+              {selectedStudents.map((student) => {
+                if (student.local_id !== selectedStudentId) return null;
+                const assessments = studentAssessments[student.local_id] || [];
 
-                  return (
-                    <div key={student.local_id} className="mt-4 bg-gray-900 p-4 rounded">
-                      <h4 className="font-bold mb-2">
-                        {student['First Name']} {student['Last Name']}&apos;s Assessments
-                      </h4>
+                return (
+                  <div key={student.local_id}>
+                    <h3 className="text-xl font-bold mb-4">
+                      {student['First Name']} {student['Last Name']}&apos;s Assessment History
+                    </h3>
+                    {assessments.length > 0 ? (
                       <table className="w-full">
                         <thead>
                           <tr>
@@ -424,11 +444,12 @@ const PerformanceMatrix = () => {
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  );
-                })}
-              </div>
-              </div>
+                    ) : (
+                      <p>No assessment records found for this student.</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
