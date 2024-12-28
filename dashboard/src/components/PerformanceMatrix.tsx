@@ -27,7 +27,7 @@ const PerformanceMatrix = () => {
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string>('8');
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -40,7 +40,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchTeachers();
-  }, []);
+  }, [selectedGrade]);
 
   useEffect(() => {
     fetchData();
@@ -53,7 +53,9 @@ const PerformanceMatrix = () => {
       if (selectedTeacher) {
         url.searchParams.append('teacher', selectedTeacher);
       }
-      url.searchParams.append('grade', selectedGrade);
+      if (selectedGrade) {
+        url.searchParams.append('grade', selectedGrade);
+      }
       const response = await fetch(url);
       const data = await response.json();
       setMatrixData(data.matrixData);
@@ -70,7 +72,11 @@ const PerformanceMatrix = () => {
 
   const fetchTeachers = async () => {
     try {
-      const response = await fetch('/api/teachers'); 
+      const url = new URL('/api/teachers', window.location.origin);
+      if (selectedGrade) {
+        url.searchParams.append('grade', selectedGrade);
+      }
+      const response = await fetch(url); 
       const data = await response.json();
       setTeachers(data.teachers);
     } catch (error) {
@@ -147,10 +153,15 @@ const PerformanceMatrix = () => {
               <label htmlFor="grade-select" className="mr-2">Grade Level:</label>
               <select
                 id="grade-select"
-                value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value)}
+                value={selectedGrade || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedGrade(value || null);
+                  setSelectedTeacher(null); // Reset teacher when grade changes
+                }}
                 className="bg-black text-white border border-white rounded px-2 py-1"
               >
+                <option value="">All Grades</option>
                 <option value="7">7th Grade</option>
                 <option value="8">8th Grade</option>
               </select>
