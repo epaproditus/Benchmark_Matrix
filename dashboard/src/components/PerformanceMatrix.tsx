@@ -25,6 +25,7 @@ const PerformanceMatrix = () => {
   const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
+  const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
@@ -197,18 +198,70 @@ const PerformanceMatrix = () => {
       </div>
 
       {/* Search Functionality */}
-      <div className="mb-4">
-        <label htmlFor="search" className="mr-2">Search by Name or ID:</label>
-        <input
-          type="text"
-          id="search"
-          placeholder="Enter name or ID"
-          onChange={() => {
-            // Force re-render by updating a state
-            setSelectedStudents([...selectedStudents]);
-          }}
-          className="bg-black text-white border border-white rounded px-2 py-1"
-        />
+      <div className="mb-4 space-y-4">
+        <div>
+          <label htmlFor="search" className="mr-2">Search by Name or ID:</label>
+          <input
+            type="text"
+            id="search"
+            placeholder="Enter name or ID"
+            onChange={async (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              if (searchTerm.length < 2) {
+                setSearchResults([]);
+                return;
+              }
+              
+              try {
+                const response = await fetch('/api/matrix', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    search: searchTerm,
+                    teacher: selectedTeacher || undefined,
+                    grade: selectedGrade
+                  }),
+                });
+                const data = await response.json();
+                setSearchResults(data.students || []);
+              } catch (error) {
+                console.error('Error searching students:', error);
+              }
+            }}
+            className="bg-black text-white border border-white rounded px-2 py-1"
+          />
+        </div>
+        
+        {/* Display filtered student as a line */}
+        {searchResults.length === 1 && (
+          <div className="bg-black text-white p-4 rounded border border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+              <div className="flex flex-col">
+                <span className="text-gray-400">Student</span>
+                <span>{searchResults[0]['First Name']} {searchResults[0]['Last Name']}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-gray-400">Teacher & Grade</span>
+                <span>{searchResults[0].Teacher} - Grade {searchResults[0].Grade}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-gray-400">Benchmark Score</span>
+                <span>{searchResults[0].benchmark_score}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-gray-400">STAAR Score</span>
+                <span>{searchResults[0].staar_score}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {searchResults.length > 1 && (
+          <div className="text-sm text-gray-600">
+            Found {searchResults.length} matching students. Please refine your search.
+          </div>
+        )}
       </div>
       
       {/* New Section for Total Points Calculation */}
@@ -290,17 +343,6 @@ const PerformanceMatrix = () => {
                 </thead>
                 <tbody>
                   {selectedStudents
-                    .filter(student => {
-                      const searchTerm = (document.getElementById('search') as HTMLInputElement)?.value.toLowerCase() || '';
-                      return (
-                        (selectedTeacher ? student.Teacher === selectedTeacher : true) &&
-                        (searchTerm ? 
-                          student['First Name'].toLowerCase().includes(searchTerm) ||
-                          student['Last Name'].toLowerCase().includes(searchTerm) ||
-                          student.id.toString().includes(searchTerm)
-                          : true)
-                      );
-                    })
                     .map((student, index) => (
                       <tr key={index} className="hover:bg-gray-800">
                         <td className="border border-white p-2">{student.Teacher}</td>

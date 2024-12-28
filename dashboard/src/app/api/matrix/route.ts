@@ -91,54 +91,118 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { staar_level, benchmark_level, group_number, teacher, grade } = await request.json();
+    const { staar_level, benchmark_level, group_number, teacher, grade, search } = await request.json();
     const connection = await connectToDatabase();
     
-    const whereClause = [
-      '`2024 STAAR Performance` = ?',
-      '`2024-25 Benchmark Performance` = ?',
-      '`Group #` = ?'
-    ];
-    const params = [staar_level, benchmark_level, group_number];
-
-    if (teacher) {
-      whereClause.push('`Benchmark Teacher` = ?');
-      params.push(teacher);
-    }
-
     let query = '';
-    if (!grade) {
-      query = `
-        SELECT 
-          \`First Name\`,
-          \`Last Name\`,
-          Grade,
-          Campus,
-          \`Benchmark PercentScore\` as benchmark_score,
-          \`STAAR MA07 Percent Score\` as staar_score,
-          \`Local Id\` as id,
-          \`Benchmark Teacher\` as Teacher
-        FROM (
-          SELECT * FROM data
-          UNION ALL
-          SELECT * FROM data7
-        ) combined
-        WHERE ${whereClause.join(' AND ')}
-      `;
-    } else {
-      const tableName = grade === '7' ? 'data7' : 'data';
-      query = `
-        SELECT 
-          \`First Name\`,
-          \`Last Name\`,
-          Grade,
-          Campus,
-          \`Benchmark PercentScore\` as benchmark_score,
-          \`STAAR MA07 Percent Score\` as staar_score,
-          \`Benchmark Teacher\` as Teacher
-        FROM ${tableName}
-        WHERE ${whereClause.join(' AND ')}
-      `;
+    let params: (string | number)[] = [];
+
+    // Handle search case
+    if (search) {
+      const whereClause = [];
+      if (teacher) {
+        whereClause.push('`Benchmark Teacher` = ?');
+        params.push(teacher);
+      }
+      if (grade) {
+        whereClause.push('Grade = ?');
+        params.push(grade);
+      }
+
+      // Add search conditions
+      whereClause.push('(`First Name` LIKE ? OR `Last Name` LIKE ? OR `Local Id` LIKE ?)');
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern);
+
+      if (!grade) {
+        query = `
+          SELECT 
+            \`First Name\`,
+            \`Last Name\`,
+            Grade,
+            Campus,
+            \`Benchmark PercentScore\` as benchmark_score,
+            \`STAAR MA07 Percent Score\` as staar_score,
+            \`Local Id\` as id,
+            \`Benchmark Teacher\` as Teacher
+          FROM (
+            SELECT * FROM data
+            UNION ALL
+            SELECT * FROM data7
+          ) combined
+          ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
+          LIMIT 10
+        `;
+      } else {
+        const tableName = grade === '7' ? 'data7' : 'data';
+        query = `
+          SELECT 
+            \`First Name\`,
+            \`Last Name\`,
+            Grade,
+            Campus,
+            \`Benchmark PercentScore\` as benchmark_score,
+            \`STAAR MA07 Percent Score\` as staar_score,
+            \`Local Id\` as id,
+            \`Benchmark Teacher\` as Teacher
+          FROM ${tableName}
+          ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
+          LIMIT 10
+        `;
+      }
+    } 
+    // Handle cell click case
+    else if (staar_level && benchmark_level && group_number) {
+      const whereClause = [
+        '`2024 STAAR Performance` = ?',
+        '`2024-25 Benchmark Performance` = ?',
+        '`Group #` = ?'
+      ];
+      params = [staar_level, benchmark_level, group_number];
+
+      if (teacher) {
+        whereClause.push('`Benchmark Teacher` = ?');
+        params.push(teacher);
+      }
+      if (grade) {
+        whereClause.push('Grade = ?');
+        params.push(grade);
+      }
+
+      if (!grade) {
+        query = `
+          SELECT 
+            \`First Name\`,
+            \`Last Name\`,
+            Grade,
+            Campus,
+            \`Benchmark PercentScore\` as benchmark_score,
+            \`STAAR MA07 Percent Score\` as staar_score,
+            \`Local Id\` as id,
+            \`Benchmark Teacher\` as Teacher
+          FROM (
+            SELECT * FROM data
+            UNION ALL
+            SELECT * FROM data7
+          ) combined
+          WHERE ${whereClause.join(' AND ')}
+        `;
+      } else {
+        const tableName = grade === '7' ? 'data7' : 'data';
+        query = `
+          SELECT 
+            \`First Name\`,
+            \`Last Name\`,
+            Grade,
+            Campus,
+            \`Benchmark PercentScore\` as benchmark_score,
+            \`STAAR MA07 Percent Score\` as staar_score,
+            \`Local Id\` as id,
+            \`Benchmark Teacher\` as Teacher
+          FROM ${tableName}
+          WHERE ${whereClause.join(' AND ')}
+        `;
+      }
     }
 
     const [students] = await connection.execute(query, params);
