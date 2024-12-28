@@ -188,7 +188,7 @@ const PerformanceMatrix = () => {
               <div className="text-blue-600">B: 68-79</div>
               <div className="text-purple-600">C: 61-67</div>
               <div className="text-red-600">D: 55-60</div>
-              <div className="text-red-600">F: &lt; 55</div>
+              <div className="text-red-600">F: &lt;55</div>
             </div>
           </div>
         </div>
@@ -297,7 +297,7 @@ const PerformanceMatrix = () => {
               <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
                 2024 STAAR
               </th>
-              <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={6}>
+              <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={7}>
                 Spring Benchmark
               </th>
             </tr>
@@ -307,38 +307,64 @@ const PerformanceMatrix = () => {
                   {level}
                 </th>
               ))}
+              <th className="border p-2 text-sm min-w-[100px] bg-gray-100">Row Total</th>
             </tr>
           </thead>
           <tbody>
-            {performanceLevels.map((staarLevel, rowIndex) => (
-              <tr key={rowIndex}>
-                <td className="border p-2 font-medium min-w-[150px]">
-                  <div>{staarLevel}</div>
-                  <div className="text-sm text-gray-600">
-                    {staarTotals[staarLevel] || 0}
-                  </div>
-                </td>
-                {performanceLevels.map((benchmarkLevel, colIndex) => {
-                  const cellData = getCellData(staarLevel, benchmarkLevel);
-                  return (
-                    <td
-                      key={colIndex}
-                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
-                      onClick={() => {
-                        setSelectedCell(cellData);
-                        fetchStudentDetails(cellData);
-                      }}
-                    >
-                      <div className="font-bold">{cellData.student_count}</div>
-                      <div className="text-xs text-white">
-                        {cellData.student_count > 0 ? `(Group ${cellData.group_number})` : ''}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {performanceLevels.map((staarLevel, rowIndex) => {
+              const rowTotal = performanceLevels.reduce((sum, benchmarkLevel) => {
+                const cellData = getCellData(staarLevel, benchmarkLevel);
+                return sum + cellData.student_count;
+              }, 0);
+              
+              return (
+                <tr key={rowIndex}>
+                  <td className="border p-2 font-medium min-w-[150px]">
+                    <div>{staarLevel}</div>
+                    <div className="text-sm text-gray-600">
+                      {staarTotals[staarLevel] || 0}
+                    </div>
+                  </td>
+                  {performanceLevels.map((benchmarkLevel, colIndex) => {
+                    const cellData = getCellData(staarLevel, benchmarkLevel);
+                    return (
+                      <td
+                        key={colIndex}
+                        className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
+                        onClick={() => {
+                          setSelectedCell(cellData);
+                          fetchStudentDetails(cellData);
+                        }}
+                      >
+                        <div className="font-bold">{cellData.student_count}</div>
+                        <div className="text-xs text-white">
+                          {cellData.student_count > 0 ? `(Group ${cellData.group_number})` : ''}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="border p-2 text-center font-bold bg-gray-100">{rowTotal}</td>
+                </tr>
+              );
+            })}
           </tbody>
+          <tfoot>
+            <tr className="font-bold">
+              <td className="border p-2 bg-gray-100">Column Total</td>
+              {performanceLevels.map((_, colIndex) => {
+                const colTotal = performanceLevels.reduce((sum, staarLevel) => {
+                  const cellData = getCellData(staarLevel, performanceLevels[colIndex]);
+                  return sum + cellData.student_count;
+                }, 0);
+                return (
+                  <td key={colIndex} className="border p-2 text-center bg-gray-100">{colTotal}</td>
+                );
+              })}
+              <td className="border p-2 text-center bg-gray-200">
+                {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
