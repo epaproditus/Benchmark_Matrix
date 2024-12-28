@@ -329,26 +329,24 @@ const PerformanceMatrix = () => {
               <table className="w-full">
                 <thead>
                   <tr>
-                    <th className="border border-white p-2">Teacher</th>
                     <th className="border border-white p-2">First Name</th>
                     <th className="border border-white p-2">Last Name</th>
                     <th className="border border-white p-2">Grade</th>
-                    <th className="border border-white p-2">Campus</th>
-                    <th className="border border-white p-2">Benchmark Score</th>
                     <th className="border border-white p-2">STAAR Score</th>
+                    <th className="border border-white p-2">Benchmark Score</th>
+                    <th className="border border-white p-2">Teacher</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedStudents
                     .map((student, index) => (
                       <tr key={index} className="hover:bg-gray-800">
-                        <td className="border border-white p-2">{student.Teacher}</td>
                         <td className="border border-white p-2">{student['First Name']}</td>
                         <td className="border border-white p-2">{student['Last Name']}</td>
                         <td className="border border-white p-2">{student.Grade}</td>
-                        <td className="border border-white p-2">{student.Campus}</td>
-                        <td className="border border-white p-2">{student.benchmark_score}</td>
                         <td className="border border-white p-2">{student.staar_score}</td>
+                        <td className="border border-white p-2">{student.benchmark_score}</td>
+                        <td className="border border-white p-2">{student.Teacher}</td>
                       </tr>
                     ))}
                 </tbody>
