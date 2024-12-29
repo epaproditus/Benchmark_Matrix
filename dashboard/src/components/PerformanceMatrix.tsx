@@ -31,6 +31,56 @@ interface CellData {
   group_number: number;
 }
 
+interface AnswerKey {
+  [key: string]: {
+    correct: string;
+    standard: string;
+  };
+}
+
+const answerKey: AnswerKey = {
+  Q1: { correct: 'C', standard: '10D' },
+  Q2: { correct: '', standard: '8C' },
+  Q3: { correct: 'B', standard: '5D' },
+  Q4: { correct: 'J', standard: '5I' },
+  Q5: { correct: 'A', standard: '7C' },
+  Q6: { correct: 'H', standard: '4B' },
+  Q7: { correct: '', standard: '7A' },
+  Q8: { correct: 'G', standard: '5G' },
+  Q9: { correct: 'D', standard: '7B' },
+  Q10: { correct: 'F', standard: '12G' },
+  Q11: { correct: '', standard: '5H' },
+  Q12: { correct: 'G', standard: '3C' },
+  Q13: { correct: 'D', standard: '4C' },
+  Q14: { correct: 'F', standard: '2D' },
+  Q15: { correct: '', standard: '10C' },
+  Q16: { correct: 'H', standard: '9A' },
+  Q17: { correct: 'A', standard: '12D' },
+  Q18: { correct: 'J', standard: '5F' },
+  Q19: { correct: '', standard: '8D' },
+  Q20: { correct: 'G', standard: '5A' },
+  Q21: { correct: 'D', standard: '5D' },
+  Q22: { correct: 'F', standard: '5G' },
+  Q23: { correct: '', standard: '10A' },
+  Q24: { correct: 'G', standard: '2C' },
+  Q25: { correct: 'C', standard: '4C' },
+  Q26: { correct: 'F', standard: '6C' },
+  Q27: { correct: '', standard: '2D' },
+  Q28: { correct: 'H', standard: '7B' },
+  Q29: { correct: 'B', standard: '8C' },
+  Q30: { correct: 'J', standard: '10C' },
+  Q31: { correct: '', standard: '5I' },
+  Q32: { correct: 'H', standard: '7C' },
+  Q33: { correct: 'C', standard: '12D' },
+  Q34: { correct: 'F', standard: '5B' },
+  Q35: { correct: '', standard: '11A' },
+  Q36: { correct: 'F', standard: '3C' },
+  Q37: { correct: 'B', standard: '8B' },
+  Q38: { correct: 'G', standard: '7A' },
+  Q39: { correct: '', standard: '4B' },
+  Q40: { correct: 'J', standard: '3A' },
+};
+
 const PerformanceMatrix = () => {
   const [matrixData, setMatrixData] = useState<CellData[]>([]);
   const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
@@ -279,7 +329,12 @@ const PerformanceMatrix = () => {
             <h4 className="font-bold">Matching Students:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
               {searchResults.map((student, index) => (
-                <div key={index} className="flex flex-col">
+                <div key={index} className="flex flex-col cursor-pointer hover:bg-gray-800 p-2 rounded" onClick={() => {
+                  fetchStudentAssessments(student.local_id);
+                  setShowAssessments(true);
+                  setSelectedStudents([student]);
+                  setSelectedStudentId(student.local_id);
+                }}>
                   <span className="text-gray-400">Student</span>
                   <span>{student['First Name']} {student['Last Name']}</span>
                   <span className="text-gray-400">Teacher & Grade</span>
@@ -447,11 +502,20 @@ const PerformanceMatrix = () => {
                         <div className="grid grid-cols-5 gap-2">
                           {Object.entries(assessments[0])
                             .filter(([key]) => key.startsWith('Q'))
-                            .map(([key, value]) => (
-                              <div key={key} className="border border-white p-2">
-                                <span className="font-bold">{key}:</span> {value as string}
-                              </div>
-                            ))}
+                            .map(([key, value]) => {
+                              const answer = value as string;
+                              const correctAnswer = answerKey[key]?.correct;
+                              const standard = answerKey[key]?.standard;
+                              let bgColor = 'bg-yellow-200'; // Default color for unanswered
+                              if (correctAnswer !== '') {
+                                bgColor = answer === correctAnswer ? 'bg-green-200' : 'bg-red-200';
+                              }
+                              return (
+                                <div key={key} className={`border border-white p-2 ${bgColor}`}>
+                                  <span className="font-bold">{key} ({standard}):</span> {answer}
+                                </div>
+                              );
+                            })}
                         </div>
                       </div>
                     ) : (
