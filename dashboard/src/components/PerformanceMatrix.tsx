@@ -15,11 +15,13 @@ interface Student {
 }
 
 interface Assessment {
-  id: number;
-  local_id: string;
-  assessment_name: string;
-  score: number;
-  date: string;
+  LastName: string;
+  FirstName: string;
+  'Local Id': number;
+  Passed: string;
+  Score: number;
+  Points: number;
+  [key: string]: string | number; // This allows for dynamic question fields (Q1, Q2, etc.)
 }
 
 interface CellData {
@@ -424,26 +426,34 @@ const PerformanceMatrix = () => {
                       {student['First Name']} {student['Last Name']}&apos;s Assessment History
                     </h3>
                     {assessments.length > 0 ? (
-                      <table className="w-full">
-                        <thead>
-                          <tr>
-                            <th className="border border-white p-2">Assessment Name</th>
-                            <th className="border border-white p-2">Score</th>
-                            <th className="border border-white p-2">Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {assessments.map((assessment, index) => (
-                            <tr key={index} className="hover:bg-gray-800">
-                              <td className="border border-white p-2">{assessment.assessment_name}</td>
-                              <td className="border border-white p-2">{assessment.score}</td>
-                              <td className="border border-white p-2">
-                                {new Date(assessment.date).toLocaleDateString()}
-                              </td>
+                      <div>
+                        <table className="w-full mb-4">
+                          <thead>
+                            <tr>
+                              <th className="border border-white p-2">Score</th>
+                              <th className="border border-white p-2">Points</th>
+                              <th className="border border-white p-2">Passed</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            <tr className="hover:bg-gray-800">
+                              <td className="border border-white p-2">{assessments[0].Score}</td>
+                              <td className="border border-white p-2">{assessments[0].Points}</td>
+                              <td className="border border-white p-2">{assessments[0].Passed}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <h4 className="text-lg font-bold mb-2">Question Answers:</h4>
+                        <div className="grid grid-cols-5 gap-2">
+                          {Object.entries(assessments[0])
+                            .filter(([key]) => key.startsWith('Q'))
+                            .map(([key, value]) => (
+                              <div key={key} className="border border-white p-2">
+                                <span className="font-bold">{key}:</span> {value as string}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
                     ) : (
                       <p>No assessment records found for this student.</p>
                     )}
