@@ -15,13 +15,13 @@ export async function GET(request: Request) {
   const [assessments] = await connection.execute(
     `SELECT 
       \`Local Id\`,
-      local_id,
-      assessment_name,
-      score,
-      DATE_FORMAT(date, '%Y-%m-%d') as date
+      LastName,
+      FirstName,
+      Passed,
+      Score,
+      Points
     FROM student_assessments 
-    WHERE local_id = ?
-    ORDER BY date DESC`,
+    WHERE \`Local Id\` = ?`,
     [localId]
   );
 
@@ -30,6 +30,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ assessments });
   } catch (error) {
     console.error('Database error:', error);
-    return NextResponse.json({ error: 'Failed to fetch assessments' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch assessments', details: error }, { status: 500 });
   }
 }
