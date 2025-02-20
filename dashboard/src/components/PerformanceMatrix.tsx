@@ -274,6 +274,33 @@ const PerformanceMatrix = () => {
     return 'F';
   };
 
+  // Ensure we use the same total everywhere
+  const calculateGrandTotal = () => {
+    let total = 0;
+    performanceLevels.forEach(staarLevel => {
+      performanceLevels.forEach(benchmarkLevel => {
+        const cellData = getCellData(staarLevel, benchmarkLevel);
+        total += cellData.student_count;
+      });
+    });
+    return total;
+  };
+
+  // Add helper function for points calculation
+  const calculateTotalPoints = () => {
+    const pointsMap = {
+      base: matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+        .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
+      half: matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+        .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
+      quarter: matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
+        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
+        .reduce((sum, d) => sum + d.student_count, 0) * 0.25
+    };
+    
+    return pointsMap.base + pointsMap.half + pointsMap.quarter;
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -432,35 +459,17 @@ const PerformanceMatrix = () => {
         <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
         <div className="border p-4 bg-black text-white rounded">
           <p className="text-lg">
-            Total Points: {(
-              matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-              matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
-                .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
-              matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-                ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-                .reduce((sum, d) => sum + d.student_count, 0) * 0.25
-            ).toFixed(1)}
+            Total Points: {calculateTotalPoints().toFixed(1)}
           </p>
           <p className="text-lg">
-            Total Students: {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+            Total Students: {calculateGrandTotal()}
           </p>
           <p className="text-lg font-bold">
             Academic Growth Score:{' '}
             {(() => {
-              const score = Math.round(
-                (
-                  (
-                    matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                    matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 1.0 +
-                    matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 0.25
-                  ) / matrixData.reduce((sum, d) => sum + d.student_count, 0)
-                ) * 100
-              );
+              const totalStudents = calculateGrandTotal();
+              const totalPoints = calculateTotalPoints();
+              const score = Math.round((totalPoints / totalStudents) * 100);
               return (
                 <span className={getGradeColor(score)}>
                   {score} ({getGradeLabel(score)})
@@ -665,11 +674,13 @@ const PerformanceMatrix = () => {
                   return sum + cellData.student_count;
                 }, 0);
                 return (
-                  <td key={colIndex} className="border p-2 text-center bg-black text-white">{colTotal}</td>
+                  <td key={colIndex} className="border p-2 text-center bg-black text-white">
+                    {colTotal}
+                  </td>
                 );
               })}
               <td className="border p-2 text-center bg-black text-white">
-                {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+                {calculateGrandTotal()}
               </td>
             </tr>
           </tfoot>
