@@ -81,6 +81,11 @@ const answerKey: AnswerKey = {
   Q40: { correct: 'J', standard: '3A' },
 };
 
+interface TeacherData {
+  name: string;
+  grade: string;
+}
+
 const PerformanceMatrix = () => {
   const [matrixData, setMatrixData] = useState<CellData[]>([]);
   const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
@@ -91,10 +96,17 @@ const PerformanceMatrix = () => {
   const [showAssessments, setShowAssessments] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
-  const [teachers, setTeachers] = useState<string[]>([]);
+  const [teachers, setTeachers] = useState<TeacherData[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring');
+  const [hasTeacherData, setHasTeacherData] = useState(true);
+
+  // Add new state for available grades
+  const [availableGrades, setAvailableGrades] = useState<{
+    grades: string[];
+    hasData: { [key: string]: boolean };
+  }>({ grades: [], hasData: {} });
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -112,6 +124,11 @@ const PerformanceMatrix = () => {
   useEffect(() => {
     fetchData();
   }, [selectedTeacher, selectedGrade, selectedVersion]);
+
+  // Add useEffect to fetch grades when version changes
+  useEffect(() => {
+    fetchAvailableGrades();
+  }, [selectedVersion]);
 
   const fetchData = async () => {
     try {
@@ -146,11 +163,31 @@ const PerformanceMatrix = () => {
       if (selectedGrade) {
         url.searchParams.append('grade', selectedGrade);
       }
-      const response = await fetch(url); 
+      url.searchParams.append('version', selectedVersion);
+      
+      const response = await fetch(url);
       const data = await response.json();
+      
       setTeachers(data.teachers);
+      setHasTeacherData(data.gradeHasData);
+      
+      // Reset teacher selection if no data available
+      if (!data.gradeHasData) {
+        setSelectedTeacher(null);
+      }
     } catch (error) {
       console.error('Error fetching teachers:', error);
+    }
+  };
+
+  // Add function to fetch grades
+  const fetchAvailableGrades = async () => {
+    try {
+      const response = await fetch(`/api/grades?version=${selectedVersion}`);
+      const data = await response.json();
+      setAvailableGrades(data);
+    } catch (error) {
+      console.error('Error fetching grades:', error);
     }
   };
 
@@ -272,8 +309,17 @@ const PerformanceMatrix = () => {
                 className="bg-black text-white border border-white rounded px-2 py-1"
               >
                 <option value="">All Grades</option>
-                <option value="7">7th Grade</option>
-                <option value="8">8th Grade</option>
+                {['7', '8'].map((grade) => (
+                  availableGrades.hasData[grade] ? (
+                    <option key={grade} value={grade}>
+                      {grade}th Grade
+                    </option>
+                  ) : (
+                    <option key={grade} value={grade} disabled className="text-gray-500">
+                      {grade}th Grade (No Data)
+                    </option>
+                  )
+                ))}
               </select>
             </div>
             <div>
@@ -283,12 +329,20 @@ const PerformanceMatrix = () => {
                 value={selectedTeacher || ''}
                 onChange={(e) => setSelectedTeacher(e.target.value)}
                 className="bg-black text-white border border-white rounded px-2 py-1"
+                disabled={!hasTeacherData}
               >
                 <option value="">All Teachers</option>
                 {teachers.map((teacher, index) => (
-                  <option key={index} value={teacher}>{teacher}</option>
+                  <option key={index} value={teacher.name}>
+                    {teacher.name} ({teacher.grade}th)
+                  </option>
                 ))}
               </select>
+              {!hasTeacherData && selectedGrade && (
+                <div className="text-gray-500 text-sm mt-1">
+                  No teacher data available for selected grade
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -801,6 +855,6 @@ const PerformanceMatrix = () => {
       </div>
     </div>
   );
-}
+};
 
 export default PerformanceMatrix;
