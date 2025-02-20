@@ -94,6 +94,7 @@ const PerformanceMatrix = () => {
   const [teachers, setTeachers] = useState<string[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring');
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -110,7 +111,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTeacher, selectedGrade]);
+  }, [selectedTeacher, selectedGrade, selectedVersion]);
 
   const fetchData = async () => {
     try {
@@ -122,6 +123,9 @@ const PerformanceMatrix = () => {
       if (selectedGrade) {
         url.searchParams.append('grade', selectedGrade);
       }
+      // Add this line to send version parameter
+      url.searchParams.append('version', selectedVersion);
+
       const response = await fetch(url);
       const data = await response.json();
       setMatrixData(data.matrixData);
@@ -176,7 +180,8 @@ const PerformanceMatrix = () => {
           benchmark_level: cell.benchmark_level,
           group_number: cell.group_number,
           teacher: selectedTeacher || undefined,
-          grade: selectedGrade
+          grade: selectedGrade,
+          version: selectedVersion  // Add this line to pass the version
         }),
       });
       const data = await response.json();
@@ -241,6 +246,19 @@ const PerformanceMatrix = () => {
       <div className="mb-4 bg-black text-white p-4 rounded">
         <div className="flex justify-between items-start">
           <div className="flex gap-4">
+            <div>
+              <label htmlFor="version-select" className="mr-2">Assessment:</label>
+              <select
+                id="version-select"
+                value={selectedVersion}
+                onChange={(e) => setSelectedVersion(e.target.value as 'fall' | 'spring' | 'spring-algebra')}
+                className="bg-black text-white border border-white rounded px-2 py-1"
+              >
+                <option value="fall">Fall</option>
+                <option value="spring">Spring</option>
+                <option value="spring-algebra">Spring (with Algebra I)</option>
+              </select>
+            </div>
             <div>
               <label htmlFor="grade-select" className="mr-2">Grade Level:</label>
               <select

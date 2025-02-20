@@ -29,10 +29,14 @@ export async function GET(request: Request) {
             \`2024-25 Benchmark Performance\` as benchmark_level,
             COUNT(*) as student_count,
             \`Group #\` as group_number
-          FROM spring_matrix_data
+          FROM spring_matrix_data t1
           WHERE 1=1
           ${teacher ? 'AND `Benchmark Teacher` = ?' : ''} 
-          ${version === 'spring' ? algebraFilter : ''}
+          ${version === 'spring' ? 
+            'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : 
+            version === 'spring-algebra' ? 
+              'AND (`Local Id` IN (SELECT LocalID FROM spralg1) OR `Local Id` NOT IN (SELECT LocalID FROM spralg1))' : 
+              ''}
           GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
         `;
       } else {
@@ -130,17 +134,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { staar_level, benchmark_level, group_number, teacher, grade, search, version = 'regular' } = await request.json();
+    const { staar_level, benchmark_level, group_number, teacher, grade, search, version = 'spring' } = await request.json();
     const connection = await connectToDatabase();
     
-    // Fix table selection logic - same as GET endpoint
     const tableName = version === 'fall' ? 
       (grade === '7' ? 'data7' : 'data') : 
       'spring_matrix_data';
-
-    // Add algebra filter logic - same as GET endpoint
-    const algebraFilter = version === 'spring' ? 
-      'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
 
     let query = '';
     let params: (string | number)[] = [];
@@ -218,23 +217,23 @@ export async function POST(request: Request) {
     } 
     // Handle cell click case
     else if (staar_level && benchmark_level && group_number) {
-      const whereClause = [
-        '`2024 STAAR Performance` = ?',
-        '`2024-25 Benchmark Performance` = ?',
-        '`Group #` = ?'
-      ];
+      const whereClause = ['1=1'];
+      
+      whereClause.push('`2024 STAAR Performance` = ?');
+      whereClause.push('`2024-25 Benchmark Performance` = ?');
+      whereClause.push('`Group #` = ?');
       params = [staar_level, benchmark_level, group_number];
 
       if (teacher) {
         whereClause.push('`Benchmark Teacher` = ?');
         params.push(teacher);
       }
-      if (grade) {
+      
+      // Add grade filter except for spring-algebra
+      if (!(grade === '8' && version === 'spring-algebra') && grade) {
         whereClause.push('Grade = ?');
         params.push(grade);
       }
-
-      // FIXED: Only apply algebra filter for spring version (not spring-algebra)
       const algebraFilter = version === 'spring' ? 
         'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
 
