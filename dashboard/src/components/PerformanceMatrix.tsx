@@ -82,6 +82,9 @@ const answerKey: AnswerKey = {
 };
 
 const PerformanceMatrix = () => {
+  // Update version type and default state
+  const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring');
+  const [selectedGrade, setSelectedGrade] = useState<string | null>('8');
   const [matrixData, setMatrixData] = useState<CellData[]>([]);
   const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
@@ -93,8 +96,6 @@ const PerformanceMatrix = () => {
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<string[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
-  const [selectedVersion, setSelectedVersion] = useState<'regular' | 'spring'>('regular');
 
   const performanceLevels = [
     'Did Not Meet Low',
@@ -126,11 +127,17 @@ const PerformanceMatrix = () => {
       url.searchParams.append('version', selectedVersion);
       const response = await fetch(url);
       const data = await response.json();
-      setMatrixData(data.matrixData);
-      setStaarTotals(data.staarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
-        acc[curr.level] = curr.total;
-        return acc;
-      }, {}));
+      setMatrixData(data.matrixData || []);
+      
+      // Add null check for staarTotals
+      if (data.staarTotals) {
+        setStaarTotals(data.staarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
+          acc[curr.level] = curr.total;
+          return acc;
+        }, {}));
+      } else {
+        setStaarTotals({});
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -245,15 +252,16 @@ const PerformanceMatrix = () => {
         <div className="flex justify-between items-start">
           <div className="flex gap-4">
             <div>
-              <label htmlFor="version-select" className="mr-2">Version:</label>
+              <label htmlFor="version-select" className="mr-2">Assessment:</label>
               <select
                 id="version-select"
                 value={selectedVersion}
-                onChange={(e) => setSelectedVersion(e.target.value as 'regular' | 'spring')}
+                onChange={(e) => setSelectedVersion(e.target.value as 'fall' | 'spring' | 'spring-algebra')}
                 className="bg-black text-white border border-white rounded px-2 py-1"
               >
-                <option value="regular">Regular</option>
+                <option value="fall">Fall</option>
                 <option value="spring">Spring</option>
+                <option value="spring-algebra">Spring (with Algebra I)</option>
               </select>
             </div>
             <div>
@@ -300,6 +308,20 @@ const PerformanceMatrix = () => {
           </div>
         </div>
       </div>
+
+      {/* Add separate matrices for 8th grade */}
+      {selectedGrade === '8' && selectedVersion === 'spring' && (
+        <>
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-4">8th Grade Math</h2>
+            {/* Existing matrix code but filtered for non-algebra students */}
+          </div>
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-4">8th Grade Algebra</h2>
+            {/* Duplicate matrix code but filtered for algebra students */}
+          </div>
+        </>
+      )}
 
       {/* Search Functionality */}
       <div className="mb-4 space-y-4">

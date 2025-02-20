@@ -5,19 +5,25 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const teacher = searchParams.get('teacher');
   const grade = searchParams.get('grade');
-  const version = searchParams.get('version') || 'regular';
+  const version = searchParams.get('version') || 'spring';
   
   try {
     const connection = await connectToDatabase();
     
-    const tables = version === 'spring' ? 
-      { '7': 'spring_matrix_data', '8': 'spring_matrix_data' } : 
-      { '7': 'data7', '8': 'data' };
-    
+    // Fix table selection logic
+    const tableName = version === 'fall' ? 
+      (grade === '7' ? 'data7' : 'data') : 
+      'spring_matrix_data';
+
+    // For spring regular version, exclude algebra students
+    // For spring-algebra version, include all students
+    const algebraFilter = version === 'spring' ? 
+      'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
+
     let query = '';
     if (!grade) {
       // For spring version, just use the table once
-      if (version === 'spring') {
+      if (version === 'spring' || version === 'spring-algebra') {
         query = `
           SELECT 
             \`2024 STAAR Performance\` as staar_level,
@@ -27,6 +33,7 @@ export async function GET(request: Request) {
           FROM spring_matrix_data
           WHERE 1=1
           ${teacher ? 'AND `Benchmark Teacher` = ?' : ''} 
+          ${version === 'spring-algebra' ? algebraFilter : ''}
           GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
         `;
       } else {
@@ -47,7 +54,6 @@ export async function GET(request: Request) {
         `;
       }
     } else {
-      const tableName = tables[grade as '7' | '8'];
       query = `
         SELECT 
           \`2024 STAAR Performance\` as staar_level,
@@ -55,7 +61,9 @@ export async function GET(request: Request) {
           COUNT(*) as student_count,
           \`Group #\` as group_number
         FROM ${tableName}
-        ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
+        WHERE 1=1
+        ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
+        ${version === 'spring' ? algebraFilter : ''}
         GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
       `;
     }
@@ -68,7 +76,7 @@ export async function GET(request: Request) {
     // Query to get total counts per STAAR level
     let staarQuery = '';
     if (!grade) {
-      if (version === 'spring') {
+      if (version === 'spring' || version === 'spring-algebra') {
         staarQuery = `
           SELECT 
             \`2024 STAAR Performance\` as level,
@@ -76,6 +84,7 @@ export async function GET(request: Request) {
           FROM spring_matrix_data
           WHERE 1=1
           ${teacher ? 'AND TRIM(`Benchmark Teacher`) = ?' : ''}
+          ${version === 'spring-algebra' ? algebraFilter : ''}
           GROUP BY \`2024 STAAR Performance\`
         `;
       } else {
@@ -93,13 +102,14 @@ export async function GET(request: Request) {
         `;
       }
     } else {
-      const tableName = tables[grade as '7' | '8'];
       staarQuery = `
         SELECT 
           \`2024 STAAR Performance\` as level,
           COUNT(*) as total
         FROM ${tableName}
-        ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
+        WHERE 1=1
+        ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
+        ${version === 'spring' ? algebraFilter : ''}
         GROUP BY \`2024 STAAR Performance\`
       `;
     }
@@ -149,24 +159,41 @@ export async function POST(request: Request) {
       params.push(searchPattern, searchPattern, searchPattern);
 
       if (!grade) {
-        query = `
-          SELECT 
-            \`First Name\`,
-            \`Last Name\`,
-            Grade,
-            Campus,
-            \`Benchmark PercentScore\` as benchmark_score,
-            \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as local_id,
-            \`Benchmark Teacher\` as Teacher
-          FROM (
-            SELECT * FROM data
-            UNION ALL
-            SELECT * FROM data7
-          ) combined
-          ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
-          LIMIT 10
-        `;
+        if (version === 'spring') {
+          query = `
+            SELECT 
+              \`First Name\`,
+              \`Last Name\`,
+              Grade,
+              Campus,
+              \`Benchmark PercentScore\` as benchmark_score,
+              \`STAAR MA07 Percent Score\` as staar_score,
+              \`Local Id\` as local_id,
+              \`Benchmark Teacher\` as Teacher
+            FROM spring_matrix_data
+            ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
+            LIMIT 10
+          `;
+        } else {
+          query = `
+            SELECT 
+              \`First Name\`,
+              \`Last Name\`,
+              Grade,
+              Campus,
+              \`Benchmark PercentScore\` as benchmark_score,
+              \`STAAR MA07 Percent Score\` as staar_score,
+              \`Local Id\` as local_id,
+              \`Benchmark Teacher\` as Teacher
+            FROM (
+              SELECT * FROM data
+              UNION ALL
+              SELECT * FROM data7
+            ) combined
+            ${whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : ''}
+            LIMIT 10
+          `;
+        }
       } else {
         const tableName = grade === '7' ? 'data7' : 'data';
         query = `
