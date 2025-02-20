@@ -10,19 +10,18 @@ export async function GET(request: Request) {
   try {
     const connection = await connectToDatabase();
     
-    // Fix table selection logic
+    // Fix table selection logic - always use spring_matrix_data for spring versions
     const tableName = version === 'fall' ? 
       (grade === '7' ? 'data7' : 'data') : 
       'spring_matrix_data';
 
     // For spring regular version, exclude algebra students
-    // For spring-algebra version, include all students
+    // For spring-algebra version, don't apply any filter
     const algebraFilter = version === 'spring' ? 
       'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
 
     let query = '';
     if (!grade) {
-      // For spring version, just use the table once
       if (version === 'spring' || version === 'spring-algebra') {
         query = `
           SELECT 
@@ -33,7 +32,7 @@ export async function GET(request: Request) {
           FROM spring_matrix_data
           WHERE 1=1
           ${teacher ? 'AND `Benchmark Teacher` = ?' : ''} 
-          ${version === 'spring-algebra' ? algebraFilter : ''}
+          ${version === 'spring' ? algebraFilter : ''}
           GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
         `;
       } else {
@@ -84,7 +83,7 @@ export async function GET(request: Request) {
           FROM spring_matrix_data
           WHERE 1=1
           ${teacher ? 'AND TRIM(`Benchmark Teacher`) = ?' : ''}
-          ${version === 'spring-algebra' ? algebraFilter : ''}
+          ${version === 'spring' ? algebraFilter : ''}
           GROUP BY \`2024 STAAR Performance\`
         `;
       } else {
@@ -134,9 +133,14 @@ export async function POST(request: Request) {
     const { staar_level, benchmark_level, group_number, teacher, grade, search, version = 'regular' } = await request.json();
     const connection = await connectToDatabase();
     
-    const tables = version === 'spring' ? 
-      { '7': 'spring_matrix_data', '8': 'spring_matrix_data' } : 
-      { '7': 'data7', '8': 'data' };
+    // Fix table selection logic - same as GET endpoint
+    const tableName = version === 'fall' ? 
+      (grade === '7' ? 'data7' : 'data') : 
+      'spring_matrix_data';
+
+    // Add algebra filter logic - same as GET endpoint
+    const algebraFilter = version === 'spring' ? 
+      'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
 
     let query = '';
     let params: (string | number)[] = [];
@@ -230,56 +234,24 @@ export async function POST(request: Request) {
         params.push(grade);
       }
 
-      if (!grade) {
-        if (version === 'spring') {
-          query = `
-            SELECT 
-              \`First Name\`,
-              \`Last Name\`,
-              Grade,
-              Campus,
-              \`Benchmark PercentScore\` as benchmark_score,
-              \`STAAR MA07 Percent Score\` as staar_score,
-              \`Local Id\` as local_id,
-              \`Benchmark Teacher\` as Teacher
-            FROM spring_matrix_data
-            WHERE ${whereClause.join(' AND ')}
-          `;
-        } else {
-          query = `
-            SELECT 
-              \`First Name\`,
-              \`Last Name\`,
-              Grade,
-              Campus,
-              \`Benchmark PercentScore\` as benchmark_score,
-              \`STAAR MA07 Percent Score\` as staar_score,
-              \`Local Id\` as local_id,
-              \`Benchmark Teacher\` as Teacher
-            FROM (
-              SELECT * FROM data
-              UNION ALL
-              SELECT * FROM data7
-            ) combined
-            WHERE ${whereClause.join(' AND ')}
-          `;
-        }
-      } else {
-        const tableName = tables[grade as '7' | '8'];
-        query = `
-          SELECT 
-            \`First Name\`,
-            \`Last Name\`,
-            Grade,
-            Campus,
-            \`Benchmark PercentScore\` as benchmark_score,
-            \`STAAR MA07 Percent Score\` as staar_score,
-            \`Local Id\` as local_id,
-            \`Benchmark Teacher\` as Teacher
-          FROM ${tableName}
-          WHERE ${whereClause.join(' AND ')}
-        `;
-      }
+      // FIXED: Only apply algebra filter for spring version (not spring-algebra)
+      const algebraFilter = version === 'spring' ? 
+        'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : '';
+
+      query = `
+        SELECT 
+          \`First Name\`,
+          \`Last Name\`,
+          Grade,
+          Campus,
+          \`Benchmark PercentScore\` as benchmark_score,
+          \`STAAR MA07 Percent Score\` as staar_score,
+          \`Local Id\` as local_id,
+          \`Benchmark Teacher\` as Teacher
+        FROM ${tableName}
+        WHERE ${whereClause.join(' AND ')}
+        ${algebraFilter}
+      `;
     }
 
     const [students] = await connection.execute(query, params);
