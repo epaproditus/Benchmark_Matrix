@@ -22,8 +22,11 @@ export async function GET(request: Request) {
     } else {
       query = `
         SELECT DISTINCT Grade 
-        FROM spring_matrix_data 
-        WHERE Grade IS NOT NULL
+        FROM (
+          SELECT Grade FROM spring_matrix_data WHERE Grade IS NOT NULL
+          UNION
+          SELECT Grade FROM spring7_matrix_view WHERE Grade IS NOT NULL
+        ) grades
         ORDER BY Grade
       `;
     }

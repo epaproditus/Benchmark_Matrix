@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const connection = await connectToDatabase();
 
-    // Get available grades first
+    // Modified gradesQuery to include spring7_matrix_view
     let gradesQuery = '';
     if (version === 'fall') {
       gradesQuery = `
@@ -24,8 +24,11 @@ export async function GET(request: Request) {
     } else {
       gradesQuery = `
         SELECT DISTINCT Grade 
-        FROM spring_matrix_data 
-        WHERE Grade IS NOT NULL
+        FROM (
+          SELECT Grade FROM spring_matrix_data WHERE Grade IS NOT NULL
+          UNION
+          SELECT Grade FROM spring7_matrix_view WHERE Grade IS NOT NULL
+        ) grades
         ORDER BY Grade
       `;
     }
@@ -33,38 +36,60 @@ export async function GET(request: Request) {
     const [grades] = await connection.execute(gradesQuery);
     const availableGrades = grades.map((g: any) => g.Grade);
 
-    // Then get teachers based on available grades
     let query = '';
     const params = [];
 
     if (grade) {
-      // If specific grade is selected
-      if (!availableGrades.includes(grade)) {
-        return NextResponse.json({ teachers: [], gradeHasData: false });
+      if (version === 'spring' || version === 'spring-algebra') {
+        const tableName = grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data';
+        query = `
+          SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
+          FROM ${tableName}
+          WHERE Grade = ?
+          AND \`Benchmark Teacher\` IS NOT NULL 
+          AND TRIM(\`Benchmark Teacher\`) != ''
+          ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+          ORDER BY \`Benchmark Teacher\`
+        `;
+      } else {
+        query = `
+          SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
+          FROM ${grade === '7' ? 'data7' : 'data'}
+          WHERE Grade = ?
+          AND \`Benchmark Teacher\` IS NOT NULL 
+          AND TRIM(\`Benchmark Teacher\`) != ''
+          ORDER BY \`Benchmark Teacher\`
+        `;
       }
-
-      query = `
-        SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
-        FROM ${version === 'fall' ? (grade === '7' ? 'data7' : 'data') : 'spring_matrix_data'}
-        WHERE Grade = ?
-        AND \`Benchmark Teacher\` IS NOT NULL 
-        AND TRIM(\`Benchmark Teacher\`) != ''
-        ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-        ORDER BY \`Benchmark Teacher\`
-      `;
       params.push(grade);
     } else {
-      // If no grade selected, only show teachers from available grades
-      const gradeConditions = availableGrades.map(() => 'Grade = ?').join(' OR ');
-      query = `
-        SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
-        FROM ${version === 'spring' ? 'spring_matrix_data' : '(SELECT * FROM data UNION ALL SELECT * FROM data7) combined'}
-        WHERE (${gradeConditions})
-        AND \`Benchmark Teacher\` IS NOT NULL 
-        AND TRIM(\`Benchmark Teacher\`) != ''
-        ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-        ORDER BY Grade, \`Benchmark Teacher\`
-      `;
+      // Modified query to include spring7_matrix_view when no grade is selected
+      if (version === 'spring' || version === 'spring-algebra') {
+        query = `
+          SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
+          FROM (
+            SELECT * FROM spring_matrix_data
+            ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+            UNION ALL
+            SELECT * FROM spring7_matrix_view
+          ) combined
+          WHERE Grade IN (${availableGrades.map(() => '?').join(',')})
+          AND \`Benchmark Teacher\` IS NOT NULL 
+          AND TRIM(\`Benchmark Teacher\`) != ''
+          ORDER BY Grade, \`Benchmark Teacher\`
+        `;
+      } else {
+        const gradeConditions = availableGrades.map(() => 'Grade = ?').join(' OR ');
+        query = `
+          SELECT DISTINCT \`Benchmark Teacher\` as teacher, Grade
+          FROM ${version === 'spring' ? 'spring_matrix_data' : '(SELECT * FROM data UNION ALL SELECT * FROM data7) combined'}
+          WHERE (${gradeConditions})
+          AND \`Benchmark Teacher\` IS NOT NULL 
+          AND TRIM(\`Benchmark Teacher\`) != ''
+          ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+          ORDER BY Grade, \`Benchmark Teacher\`
+        `;
+      }
       params.push(...availableGrades);
     }
 

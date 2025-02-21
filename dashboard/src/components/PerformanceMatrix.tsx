@@ -289,13 +289,19 @@ const PerformanceMatrix = () => {
   // Add helper function for points calculation
   const calculateTotalPoints = () => {
     const pointsMap = {
+      // Base points (1.0) - standard growth categories
       base: matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
         .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
+        
+      // Half points (0.5) - moderate growth categories
       half: matrixData.filter(d => [29, 22, 15].includes(d.group_number))
         .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
-      quarter: matrixData.filter(d => [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-        .reduce((sum, d) => sum + d.student_count, 0) * 0.25
+        
+      // Quarter points (0.25) - DNM students showing some growth
+      quarter: matrixData.filter(d => 
+        [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
+        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
+      ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
     };
     
     return pointsMap.base + pointsMap.half + pointsMap.quarter;
@@ -852,7 +858,8 @@ const PerformanceMatrix = () => {
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => 
-                      [36, 35, 30, 29].includes(d.group_number)
+                      [36, 35, 30, 29].includes(d.group_number) &&
+                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
