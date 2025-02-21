@@ -409,7 +409,8 @@ const PerformanceMatrix = () => {
                   body: JSON.stringify({
                     search: searchTerm,
                     teacher: selectedTeacher || undefined,
-                    grade: selectedGrade
+                    grade: selectedGrade,
+                    version: selectedVersion  // Add version to search params
                   }),
                 });
                 const data = await response.json();
@@ -425,25 +426,54 @@ const PerformanceMatrix = () => {
         {/* Display filtered student as a line */}
         {searchResults.length > 0 && (
           <div className="bg-black text-white p-4 rounded border border-gray-700">
-            <h4 className="font-bold">Matching Students:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              {searchResults.map((student, index) => (
-                <div key={index} className="flex flex-col cursor-pointer hover:bg-gray-800 p-2 rounded" onClick={() => {
-                  fetchStudentAssessments(student.local_id);
-                  setShowAssessments(true);
-                  setSelectedStudents([student]);
-                  setSelectedStudentId(student.local_id);
-                }}>
-                  <span className="text-gray-400">Student</span>
-                  <span>{student['First Name']} {student['Last Name']}</span>
-                  <span className="text-gray-400">Teacher & Grade</span>
-                  <span>{student.Teacher} - Grade {student.Grade}</span>
-                  <span className="text-gray-400">Benchmark Score</span>
-                  <span>{student.benchmark_score}</span>
-                  <span className="text-gray-400">STAAR Score</span>
-                  <span>{student.staar_score}</span>
-                </div>
-              ))}
+            <h4 className="font-bold mb-4">Matching Students ({searchResults.length})</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {searchResults.map((student, index) => {
+                // Determine the color based on the spring group number
+                const groupColor = student.spring_group ? 
+                  getCellColor(student.spring_group, 1).replace('bg-', '') : 
+                  'gray-900';
+
+                return (
+                  <div key={index} 
+                    className={`bg-${groupColor} p-3 rounded shadow-md hover:opacity-90 transition-opacity`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                        <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
+                      </div>
+                      {student.spring_group && (
+                        <div className="text-xs font-bold">
+                          Group {student.spring_group}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="border-r border-opacity-20 border-white pr-2">
+                        <div className="font-bold opacity-75 text-xs mb-1">
+                          {student.Grade === '8' ? '7th' : '6th'} STAAR
+                        </div>
+                        <div>{student.staar_score || 'N/A'}</div>
+                        <div className="text-xs">{student.staar_level || 'N/A'}</div>
+                      </div>
+
+                      <div className="border-r border-opacity-20 border-white px-2">
+                        <div className="font-bold opacity-75 text-xs mb-1">Fall</div>
+                        <div>{student.fall_benchmark_score || 'N/A'}</div>
+                        <div className="text-xs">{student.fall_benchmark_level || 'N/A'}</div>
+                      </div>
+
+                      <div className="pl-2">
+                        <div className="font-bold opacity-75 text-xs mb-1">Spring</div>
+                        <div>{student.spring_benchmark_score || 'N/A'}</div>
+                        <div className="text-xs">{student.spring_benchmark_level || 'N/A'}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

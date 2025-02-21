@@ -65,84 +65,39 @@
   - Grade Level (7th and 8th grade)
   - Teacher Selection (dynamically loaded based on grade and version)
 
-### 2. Matrix Display
-- Rows: STAAR Performance Levels
-  - Did Not Meet Low
-  - Did Not Meet High
-  - Approaches Low
-  - Approaches High
-  - Meets
-  - Masters
+### 2. Matrix Display and Calculations
+- Matrix Layout:
+  * Rows: STAAR Performance Levels
+  * Columns: Benchmark Performance Levels
+  * Row Totals: Sum of all cells in each row
+  * Column Totals: Sum of all cells in each column
+  * Grand Total: Calculated using `calculateGrandTotal()`
+    - Iterates through all cells
+    - Ensures consistency across all calculations
+    - Used as denominator for Academic Growth Score
 
-- Columns: Benchmark Performance Levels (same as rows)
+- Points System:
+  * Base Points (1.0): Groups 35-31, 28-25, 21-19, 14-13, 8, 7, 1
+  * Half Points (0.5): Groups 29, 22, 15
+  * Quarter Points (0.25): Groups 34-31, 28-25 (DNM students only)
+  * Zero Points: Groups 36, 30, 24-23, 18-16, 12-9, 6-2
 
-- Cell Contents:
-  - Student Count
-  - Group Number
-  - Color Coding:
+- Academic Growth Score:
+  ```typescript
+  score = (totalPoints / calculateGrandTotal()) * 100
+  ```
+  * Uses consistent total from `calculateGrandTotal()`
+  * Includes all point categories
+  * Rounded to nearest whole number
+  * Displayed with letter grade
+
+- Cell Display:
+  * Student count
+  * Group number (if count > 0)
+  * Color coding:
     - Green: Positive growth
     - Blue: Moderate progress
     - Red: Needs improvement
-
-- **Matrix Totals**
-  - Cell Totals:
-    * Shows count of students in each STAAR/Benchmark level combination
-    * Displays group number (1-36)
-    * Color-coded based on performance (red, blue, green)
-  
-  - Row Totals:
-    * Right column shows total students per STAAR level
-    * Sum of all cells in each row
-  
-  - Column Totals:
-    * Bottom row shows total students per Benchmark level
-    * Sum of all cells in each column
-  
-  - Overall Statistics:
-    * Total Points:
-      - 0.0 points: Sum of specific group numbers
-      - 0.5 points: Sum of groups 29, 22, 15
-      - 1.0 points: Sum of groups 35-31, 28-25, etc.
-    * Academic Growth Score:
-      - Calculated as (Total Points / Total Students) * 100
-      - Displayed with corresponding letter grade
-    * HB4545 Specific:
-      - Separate matrix for "Did Not Meet" levels
-      - Additional 0.25 point category for specific groups
-      - Special intervention tracking calculations
-
-- **Cell Click Interactions**
-  - Modal Trigger:
-    * Clicking any cell opens a modal overlay
-    * Dark semi-transparent background (bg-black bg-opacity-50)
-    * Centered positioning with max-width and scrollable content
-  
-  - Data Fetching:
-    * Calls fetchStudentDetails() with cell data:
-      - STAAR level
-      - Benchmark level
-      - Group number
-      - Selected teacher (if any)
-      - Selected grade
-      - Current version
-    
-  - Modal Content:
-    * Header: Shows selected STAAR/Benchmark levels
-    * Student List Table:
-      - First Name (clickable for detailed view)
-      - Last Name
-      - Grade
-      - STAAR Score
-      - Benchmark Score
-      - Teacher
-    * Close button (✕) in top-right corner
-    
-  - Secondary Interaction:
-    * Clicking student's name opens assessment details
-    * Shows individual question responses
-    * Color-coded answers (green: correct, red: incorrect, yellow: unanswered)
-    * Standards alignment for each question
-    * Overall score and passing status
 
 ### 3. Data Management (/components/MissingData.tsx)
 - Tracks missing assessment scores
@@ -150,20 +105,7 @@
   - Missing Benchmark scores
   - Missing STAAR scores
 
-### 4. Calculations
-- Academic Growth Score:
-  - 0.0 points: Groups 36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2
-  - 0.5 points: Groups 29, 22, 15
-  - 1.0 points: Groups 35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1
-
-- Grade Scale:
-  - A: 80+
-  - B: 68-79
-  - C: 61-67
-  - D: 55-60
-  - F: Below 55
-
-### 5. Database Integration
+### 4. Database Integration
 - Tables:
   - spring_matrix_data: Spring semester data
   - data7: 7th grade fall data
@@ -177,3 +119,16 @@
 4. HB4545 compliance tracking
 5. Score editing capability for missing data
 6. Comprehensive performance metrics
+
+## Recent Updates
+1. Fixed grade level filter to dynamically show/disable options based on data availability
+2. Added teacher grade level indicators in dropdown
+3. Implemented consistent total calculations using `calculateGrandTotal()`
+4. Fixed Academic Growth Score calculation to use proper denominator
+5. Added data verification for spring vs spring-algebra selections
+
+## Known Issues
+1. ~~Grade level filter showing unavailable options~~ ✓ Fixed
+2. ~~Teacher filter not respecting grade level selection~~ ✓ Fixed
+3. ~~Matrix totals inconsistency~~ ✓ Fixed
+4. ~~Academic Growth Score calculation using incorrect total~~ ✓ Fixed
