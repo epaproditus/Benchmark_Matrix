@@ -366,20 +366,19 @@ export async function POST(request: Request) {
       const whereClause = [];
       params = [];
 
-      // Add search condition first
-      whereClause.push('(t1.`First Name` LIKE ? OR t1.`Last Name` LIKE ? OR t1.`Local Id` LIKE ?)');
+      // Add search condition first with correct table alias 'm'
+      whereClause.push('(m.`First Name` LIKE ? OR m.`Last Name` LIKE ? OR m.`Local Id` LIKE ?)');
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
 
       if (teacher) {
-        whereClause.push(`t1.${subject === 'rla' ? 'Teacher' : '`Benchmark Teacher`'} = ?`);
+        whereClause.push(`m.${subject === 'rla' ? 'Teacher' : '`Benchmark Teacher`'} = ?`);
         params.push(teacher);
       }
       if (grade) {
-        whereClause.push('t1.Grade = ?');
+        whereClause.push('m.Grade = ?');
         params.push(grade);
       }
 
-      // Modified query to handle subject selection and grade levels properly
       query = `
         SELECT DISTINCT
           m.\`First Name\`,
