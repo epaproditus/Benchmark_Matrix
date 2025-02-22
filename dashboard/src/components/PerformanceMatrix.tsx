@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface Student {
   id: number;
@@ -11,7 +11,14 @@ interface Student {
   Campus: string;
   benchmark_score: number;
   staar_score: number;
+  staar_level: string;
+  benchmark_level: string;
   group_number: number;
+  rla_group_number?: number;
+  rla_staar_score?: number;
+  rla_benchmark_score?: number;
+  rla_staar_level?: string;
+  rla_benchmark_level?: string;
 }
 
 interface Assessment {
@@ -118,41 +125,7 @@ const PerformanceMatrix = () => {
     'Masters'
   ];
 
-  useEffect(() => {
-    fetchTeachers();
-  }, [selectedGrade, selectedVersion, selectedSubject]);
-
-  useEffect(() => {
-    fetchData();
-  }, [selectedTeacher, selectedGrade, selectedVersion, selectedSubject]);
-
-  // Add useEffect to fetch grades when version changes
-  useEffect(() => {
-    fetchAvailableGrades();
-  }, [selectedVersion]);
-
-  // Update version options based on subject
-  const getVersionOptions = () => {
-    if (selectedSubject === 'rla') {
-      return [
-        { value: 'spring', label: 'Spring' }
-      ];
-    }
-    return [
-      { value: 'fall', label: 'Fall' },
-      { value: 'spring-algebra', label: 'Spring' },
-      { value: 'spring', label: 'Spring without Algebra I' }
-    ];
-  };
-
-  // Reset version when changing subjects
-  useEffect(() => {
-    if (selectedSubject === 'rla') {
-      setSelectedVersion('spring');
-    }
-  }, [selectedSubject]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const url = new URL('/api/matrix', window.location.origin);
@@ -181,9 +154,9 @@ const PerformanceMatrix = () => {
       console.error('Error fetching data:', error);
       setLoading(false);
     }
-  };
+  }, [selectedTeacher, selectedGrade, selectedVersion, selectedSubject]);
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     try {
       const url = new URL('/api/teachers', window.location.origin);
       if (selectedGrade) {
@@ -205,10 +178,10 @@ const PerformanceMatrix = () => {
     } catch (error) {
       console.error('Error fetching teachers:', error);
     }
-  };
+  }, [selectedGrade, selectedVersion, selectedSubject]);
 
   // Add function to fetch grades
-  const fetchAvailableGrades = async () => {
+  const fetchAvailableGrades = useCallback(async () => {
     try {
       const response = await fetch(`/api/grades?version=${selectedVersion}`);
       const data = await response.json();
@@ -216,7 +189,41 @@ const PerformanceMatrix = () => {
     } catch (error) {
       console.error('Error fetching grades:', error);
     }
+  }, [selectedVersion]);
+
+  useEffect(() => {
+    fetchTeachers();
+  }, [fetchTeachers]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Add useEffect to fetch grades when version changes
+  useEffect(() => {
+    fetchAvailableGrades();
+  }, [fetchAvailableGrades]);
+
+  // Update version options based on subject
+  const getVersionOptions = () => {
+    if (selectedSubject === 'rla') {
+      return [
+        { value: 'spring', label: 'Spring' }
+      ];
+    }
+    return [
+      { value: 'fall', label: 'Fall' },
+      { value: 'spring-algebra', label: 'Spring' },
+      { value: 'spring', label: 'Spring without Algebra I' }
+    ];
   };
+
+  // Reset version when changing subjects
+  useEffect(() => {
+    if (selectedSubject === 'rla') {
+      setSelectedVersion('spring');
+    }
+  }, [selectedSubject]);
 
   const fetchStudentAssessments = async (localId: string) => {
     try {
@@ -264,9 +271,7 @@ const PerformanceMatrix = () => {
       const assessments: {[key: string]: Assessment[]} = {};
       for (const student of data.students) {
         if (student.local_id) {
-          const assessmentResponse = await fetch(`/api/assessments?localId=${student.local_id}`);
-          const assessmentData = await assessmentResponse.json();
-          assessments[student.local_id] = assessmentData.assessments;
+          await fetchStudentAssessments(student.local_id);
         }
       }
       setStudentAssessments(assessments);
