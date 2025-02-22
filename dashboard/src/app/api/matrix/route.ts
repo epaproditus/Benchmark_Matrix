@@ -14,7 +14,61 @@ export async function GET(request: Request) {
     let query = '';
     if (!grade) {
       // No grade filter - combine data from both grades
-      if (subject === 'rla') {
+      if (subject === 'campus') {
+        // Campus view combines both math and RLA data using MySQL compatible syntax
+        query = `
+          WITH MathData AS (
+            SELECT 
+              \`2024 STAAR Performance\` as staar_level,
+              \`2024-25 Benchmark Performance\` as benchmark_level,
+              COUNT(*) as student_count,
+              \`Group #\` as group_number
+            FROM (
+              SELECT * FROM spring_matrix_data 
+              ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+              UNION ALL
+              SELECT * FROM spring7_matrix_view
+            ) math_combined
+            GROUP BY 
+              \`2024 STAAR Performance\`,
+              \`2024-25 Benchmark Performance\`,
+              \`Group #\`
+          ),
+          RLAData AS (
+            SELECT 
+              STAAR_Performance as staar_level,
+              Benchmark_Performance as benchmark_level,
+              COUNT(*) as student_count,
+              Group_Number as group_number
+            FROM (
+              SELECT * FROM rla_data7
+              UNION ALL
+              SELECT * FROM rla_data8
+            ) rla_combined
+            GROUP BY 
+              STAAR_Performance,
+              Benchmark_Performance,
+              Group_Number
+          )
+          SELECT 
+            staar_level,
+            benchmark_level,
+            CAST(SUM(student_count) AS SIGNED) as student_count,
+            group_number
+          FROM (
+            SELECT * FROM MathData
+            UNION ALL
+            SELECT * FROM RLAData
+          ) combined
+          GROUP BY 
+            staar_level,
+            benchmark_level,
+            group_number
+          ORDER BY 
+            FIELD(staar_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters'),
+            FIELD(benchmark_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters')
+        `;
+      } else if (subject === 'rla') {
         query = `
           SELECT 
             STAAR_Performance as staar_level,
@@ -68,7 +122,47 @@ export async function GET(request: Request) {
       }
     } else {
       // Single grade filter
-      if (subject === 'rla') {
+      if (subject === 'campus') {
+        query = `
+          SELECT 
+            COALESCE(m.staar_level, r.staar_level) as staar_level,
+            COALESCE(m.benchmark_level, r.benchmark_level) as benchmark_level,
+            SUM(COALESCE(m.student_count, 0) + COALESCE(r.student_count, 0)) as student_count,
+            COALESCE(m.group_number, r.group_number) as group_number
+          FROM (
+            -- Math query for single grade
+            SELECT 
+              \`2024 STAAR Performance\` as staar_level,
+              \`2024-25 Benchmark Performance\` as benchmark_level,
+              COUNT(*) as student_count,
+              \`Group #\` as group_number
+            FROM ${grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data'}
+            WHERE Grade = ?
+            ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+            ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
+            GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
+          ) m
+          FULL OUTER JOIN (
+            -- RLA query for single grade
+            SELECT 
+              STAAR_Performance as staar_level,
+              Benchmark_Performance as benchmark_level,
+              COUNT(*) as student_count,
+              Group_Number as group_number
+            FROM ${grade === '7' ? 'rla_data7' : 'rla_data8'}
+            WHERE 1=1
+            ${teacher ? 'AND Teacher = ?' : ''}
+            GROUP BY STAAR_Performance, Benchmark_Performance, Group_Number
+          ) r
+          ON m.staar_level = r.staar_level 
+          AND m.benchmark_level = r.benchmark_level
+          AND m.group_number = r.group_number
+          GROUP BY 
+            COALESCE(m.staar_level, r.staar_level),
+            COALESCE(m.benchmark_level, r.benchmark_level),
+            COALESCE(m.group_number, r.group_number)
+        `;
+      } else if (subject === 'rla') {
         const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
         query = `
           SELECT 
@@ -125,6 +219,38 @@ export async function GET(request: Request) {
           WHERE 1=1
           ${teacher ? 'AND Teacher = ?' : ''}
           GROUP BY STAAR_Performance
+        `;
+      } else if (subject === 'campus') {
+        staarQuery = `
+          SELECT 
+            staar_level as level,
+            CAST(SUM(total) AS SIGNED) as total
+          FROM (
+            SELECT 
+              \`2024 STAAR Performance\` as staar_level,
+              COUNT(*) as total
+            FROM (
+              SELECT * FROM spring_matrix_data
+              ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+              UNION ALL
+              SELECT * FROM spring7_matrix_view
+            ) math_combined
+            GROUP BY \`2024 STAAR Performance\`
+            
+            UNION ALL
+            
+            SELECT 
+              STAAR_Performance as staar_level,
+              COUNT(*) as total
+            FROM (
+              SELECT * FROM rla_data7
+              UNION ALL
+              SELECT * FROM rla_data8
+            ) rla_combined
+            GROUP BY STAAR_Performance
+          ) combined
+          GROUP BY staar_level
+          ORDER BY FIELD(staar_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters')
         `;
       } else {
         if (version === 'spring' || version === 'spring-algebra') {
@@ -215,62 +341,37 @@ export async function POST(request: Request) {
       group_number,
       teacher,
       grade,
-      version = 'spring'
+      version = 'spring',
+      search  // Add search to destructuring
     } = await request.json();
 
-    console.log('POST request params:', { subject, staar_level, benchmark_level, group_number, teacher, grade, version });
+    let params: any[] = []; // Define params at the top level
+    let query = '';
+
+    console.log('POST request params:', { 
+      subject, 
+      staar_level, 
+      benchmark_level, 
+      group_number, 
+      teacher, 
+      grade, 
+      version,
+      search 
+    });
     
     connection = await connectToDatabase();
 
-    if (staar_level && benchmark_level && group_number) {
-      if (subject === 'rla') {
-        console.log('Handling RLA cell click');
-        const baseQuery = `
-          SELECT 
-            FirstName as 'First Name',
-            LastName as 'Last Name',
-            (CASE 
-              WHEN source = 'rla_data7' THEN '7'
-              WHEN source = 'rla_data8' THEN '8'
-            END) as Grade,
-            Benchmark_Score as benchmark_score,
-            STAAR_Score as staar_score,
-            LocalId as local_id,
-            Teacher
-          FROM (
-            SELECT *, 'rla_data7' as source FROM rla_data7
-            UNION ALL
-            SELECT *, 'rla_data8' as source FROM rla_data8
-          ) combined
-          WHERE STAAR_Performance = ?
-            AND Benchmark_Performance = ?
-            AND Group_Number = ?
-            ${grade ? 'AND source = ?' : ''}
-            ${teacher ? 'AND Teacher = ?' : ''}
-        `;
-
-        const params = [staar_level, benchmark_level, group_number];
-        if (grade) params.push(`rla_data${grade}`);
-        if (teacher) params.push(teacher);
-
-        const [students] = await connection.execute(baseQuery, params);
-        await connection.end();
-        return NextResponse.json({ students });
-      }
-      
-      // ... rest of existing math handling code ...
-    }
-
+    // Handle search case
     if (search) {
       const whereClause = [];
       params = [];
 
-      // Add filters
-      if (version === 'spring') {
-        whereClause.push('t1.`Local Id` NOT IN (SELECT LocalID FROM spralg1)');
-      }
+      // Add search condition first
+      whereClause.push('(t1.`First Name` LIKE ? OR t1.`Last Name` LIKE ? OR t1.`Local Id` LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+
       if (teacher) {
-        whereClause.push('t1.`Benchmark Teacher` = ?');
+        whereClause.push(`t1.${subject === 'rla' ? 'Teacher' : '`Benchmark Teacher`'} = ?`);
         params.push(teacher);
       }
       if (grade) {
@@ -278,68 +379,54 @@ export async function POST(request: Request) {
         params.push(grade);
       }
 
-      // Add search condition
-      whereClause.push('(t1.`First Name` LIKE ? OR t1.`Last Name` LIKE ? OR t1.`Local Id` LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-
-      // Modified query to properly handle both 7th and 8th grade data in spring version
-      if (version === 'spring' || version === 'spring-algebra') {
-        const baseTable = grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data';
-        query = `
-          SELECT DISTINCT
-            t1.\`First Name\`,
-            t1.\`Last Name\`,
-            t1.Grade,
-            t1.Campus,
-            t1.\`Local Id\` as local_id,
-            t1.\`Benchmark Teacher\` as Teacher,
-            t1.\`STAAR MA07 Percent Score\` as staar_score,
-            t1.\`2024 STAAR Performance\` as staar_level,
-            fall.\`Benchmark PercentScore\` as fall_benchmark_score,
-            fall.\`2024-25 Benchmark Performance\` as fall_benchmark_level,
-            fall.\`Group #\` as fall_group,
-            t1.\`Benchmark PercentScore\` as spring_benchmark_score,
-            t1.\`2024-25 Benchmark Performance\` as spring_benchmark_level,
-            t1.\`Group #\` as spring_group
-          FROM ${baseTable} t1
-          LEFT JOIN data${grade === '7' ? '7' : ''} fall ON t1.\`Local Id\` = fall.\`Local Id\` 
-            AND fall.Grade = t1.Grade
-          WHERE ${whereClause.join(' AND ')}
-          ORDER BY t1.\`Last Name\`, t1.\`First Name\`
-          LIMIT 10
-        `;
-      } else {
-        // Fall version query remains the same
-        query = `
-          SELECT DISTINCT
-            t1.\`First Name\`,
-            t1.\`Last Name\`,
-            t1.Grade,
-            t1.Campus,
-            t1.\`Local Id\` as local_id,
-            t1.\`Benchmark Teacher\` as Teacher,
-            t1.\`STAAR MA07 Percent Score\` as staar_score,
-            t1.\`2024 STAAR Performance\` as staar_level,
-            t1.\`Benchmark PercentScore\` as fall_benchmark_score,
-            t1.\`2024-25 Benchmark Performance\` as fall_benchmark_level,
-            t1.\`Group #\` as fall_group,
-            spring.\`Benchmark PercentScore\` as spring_benchmark_score,
-            spring.\`2024-25 Benchmark Performance\` as spring_benchmark_level,
-            spring.\`Group #\` as spring_group
-          FROM ${tableName} t1
-          LEFT JOIN ${grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data'} spring 
-            ON t1.\`Local Id\` = spring.\`Local Id\`
-            AND spring.Grade = t1.Grade
-          WHERE ${whereClause.join(' AND ')}
-          ORDER BY t1.\`Last Name\`, t1.\`First Name\`
-          LIMIT 10
-        `;
-      }
+      // Modified query to handle subject selection and grade levels properly
+      query = `
+        SELECT DISTINCT
+          m.\`First Name\`,
+          m.\`Last Name\`,
+          m.Grade,
+          m.Campus,
+          m.\`Local Id\` as local_id,
+          m.\`Benchmark Teacher\` as Teacher,
+          -- Math scores
+          m.\`STAAR MA07 Percent Score\` as staar_score,
+          m.\`2024 STAAR Performance\` as staar_level,
+          m.\`Benchmark PercentScore\` as benchmark_score,
+          m.\`2024-25 Benchmark Performance\` as benchmark_level,
+          m.\`Group #\` as group_number,
+          -- RLA scores
+          r.STAAR_Score as rla_staar_score,
+          r.STAAR_Performance as rla_staar_level,
+          r.Benchmark_Score as rla_benchmark_score,
+          r.Benchmark_Performance as rla_benchmark_level,
+          r.Group_Number as rla_group_number
+        FROM (
+          ${version === 'fall' ? `
+            SELECT * FROM data
+            UNION ALL
+            SELECT * FROM data7
+          ` : `
+            SELECT * FROM spring_matrix_data
+            ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+            UNION ALL
+            SELECT * FROM spring7_matrix_view
+          `}
+        ) m
+        LEFT JOIN (
+          SELECT * FROM rla_data7
+          UNION ALL
+          SELECT * FROM rla_data8
+        ) r ON m.\`Local Id\` = r.LocalId
+        WHERE ${whereClause.join(' AND ')}
+        ORDER BY m.\`Last Name\`, m.\`First Name\`
+        LIMIT 10
+      `;
 
       const [students] = await connection.execute(query, params);
       await connection.end();
       return NextResponse.json({ students });
     }
+
     // Handle cell click case
     else if (staar_level && benchmark_level && group_number) {
       if (subject === 'rla') {

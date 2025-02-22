@@ -99,9 +99,9 @@ const PerformanceMatrix = () => {
   const [teachers, setTeachers] = useState<TeacherData[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
-  const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring');
+  const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring-algebra');
   const [hasTeacherData, setHasTeacherData] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla'>('math');
+  const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('campus');
 
   // Add new state for available grades
   const [availableGrades, setAvailableGrades] = useState<{
@@ -140,8 +140,8 @@ const PerformanceMatrix = () => {
     }
     return [
       { value: 'fall', label: 'Fall' },
-      { value: 'spring', label: 'Spring' },
-      { value: 'spring-algebra', label: 'Spring (with Algebra I)' }
+      { value: 'spring-algebra', label: 'Spring' },
+      { value: 'spring', label: 'Spring without Algebra I' }
     ];
   };
 
@@ -388,9 +388,10 @@ const PerformanceMatrix = () => {
               <select
                 id="subject-select"
                 value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value as 'math' | 'rla')}
+                onChange={(e) => setSelectedSubject(e.target.value as 'math' | 'rla' | 'campus')}
                 className="bg-black text-white border border-white rounded px-2 py-1"
               >
+                <option value="campus">Campus View</option>
                 <option value="math">Mathematics</option>
                 <option value="rla">Reading Language Arts</option>
               </select>
@@ -472,6 +473,12 @@ const PerformanceMatrix = () => {
         </div>
       </div>
 
+      {selectedSubject === 'campus' && (
+        <div className="mt-4 mb-4 p-4 bg-blue-100 text-blue-800 rounded">
+          <strong>Note:</strong> Campus view shows combined data from both subjects. To see individual student performance and details, please select either Mathematics or Reading Language Arts from the subject dropdown.
+        </div>
+      )}
+
       {/* Search Functionality */}
       <div className="mb-4 space-y-4">
         <div>
@@ -497,7 +504,8 @@ const PerformanceMatrix = () => {
                     search: searchTerm,
                     teacher: selectedTeacher || undefined,
                     grade: selectedGrade,
-                    version: selectedVersion  // Add version to search params
+                    version: selectedVersion,
+                    subject: selectedSubject  // Add subject to search
                   }),
                 });
                 const data = await response.json();
@@ -516,46 +524,60 @@ const PerformanceMatrix = () => {
             <h4 className="font-bold mb-4">Matching Students ({searchResults.length})</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {searchResults.map((student, index) => {
-                // Determine the color based on the spring group number
-                const groupColor = student.spring_group ? 
-                  getCellColor(student.spring_group, 1).replace('bg-', '') : 
-                  'gray-900';
+                // Get the math color class
+                const mathColorClass = student.group_number ? 
+                  getCellColor(student.group_number, 1) : 
+                  'bg-gray-900';
+
+                // Get the RLA color class
+                const rlaColorClass = student.rla_group_number ? 
+                  getCellColor(student.rla_group_number, 1) : 
+                  'bg-gray-900';
 
                 return (
                   <div key={index} 
-                    className={`bg-${groupColor} p-3 rounded shadow-md hover:opacity-90 transition-opacity`}
+                    className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
-                        <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
-                      </div>
-                      {student.spring_group && (
-                        <div className="text-xs font-bold">
-                          Group {student.spring_group}
-                        </div>
-                      )}
+                    <div className="mb-2">
+                      <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                      <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="border-r border-opacity-20 border-white pr-2">
-                        <div className="font-bold opacity-75 text-xs mb-1">
-                          {student.Grade === '8' ? '7th' : '6th'} STAAR
-                        </div>
+                    <div className="grid grid-cols-4 gap-2 text-sm">
+                      {/* RLA Scores */}
+                      <div className={`${rlaColorClass} p-2 rounded`}>
+                        <div className="font-bold opacity-75 text-xs mb-1">RLA STAAR</div>
+                        <div>{student.rla_staar_score || 'N/A'}</div>
+                        <div className="text-xs">{student.rla_staar_level || 'N/A'}</div>
+                      </div>
+
+                      <div className={`${rlaColorClass} p-2 rounded`}>
+                        <div className="font-bold opacity-75 text-xs mb-1">RLA Benchmark</div>
+                        <div>{student.rla_benchmark_score || 'N/A'}</div>
+                        <div className="text-xs">{student.rla_benchmark_level || 'N/A'}</div>
+                        {student.rla_group_number && (
+                          <div className="text-xs font-bold mt-1">
+                            Group {student.rla_group_number}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Math Scores */}
+                      <div className={`${mathColorClass} p-2 rounded`}>
+                        <div className="font-bold opacity-75 text-xs mb-1">Math STAAR</div>
                         <div>{student.staar_score || 'N/A'}</div>
                         <div className="text-xs">{student.staar_level || 'N/A'}</div>
                       </div>
 
-                      <div className="border-r border-opacity-20 border-white px-2">
-                        <div className="font-bold opacity-75 text-xs mb-1">Fall</div>
-                        <div>{student.fall_benchmark_score || 'N/A'}</div>
-                        <div className="text-xs">{student.fall_benchmark_level || 'N/A'}</div>
-                      </div>
-
-                      <div className="pl-2">
-                        <div className="font-bold opacity-75 text-xs mb-1">Spring</div>
-                        <div>{student.spring_benchmark_score || 'N/A'}</div>
-                        <div className="text-xs">{student.spring_benchmark_level || 'N/A'}</div>
+                      <div className={`${mathColorClass} p-2 rounded`}>
+                        <div className="font-bold opacity-75 text-xs mb-1">Math Benchmark</div>
+                        <div>{student.benchmark_score || 'N/A'}</div>
+                        <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
+                        {student.group_number && (
+                          <div className="text-xs font-bold mt-1">
+                            Group {student.group_number}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -764,10 +786,12 @@ const PerformanceMatrix = () => {
                     return (
                       <td
                         key={colIndex}
-                        className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
+                        className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(cellData.group_number, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
                         onClick={() => {
-                          setSelectedCell(cellData);
-                          fetchStudentDetails(cellData);
+                          if (selectedSubject !== 'campus') {
+                            setSelectedCell(cellData);
+                            fetchStudentDetails(cellData);
+                          }
                         }}
                       >
                         <div className="font-bold">{cellData.student_count}</div>
@@ -838,10 +862,12 @@ const PerformanceMatrix = () => {
                   return (
                     <td
                       key={colIndex}
-                      className={`border p-2 text-center cursor-pointer ${getCellColor(cellData.group_number, cellData.student_count)} hover:opacity-75`}
+                      className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(cellData.group_number, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
                       onClick={() => {
-                        setSelectedCell(cellData);
-                        fetchStudentDetails(cellData);
+                        if (selectedSubject !== 'campus') {
+                          setSelectedCell(cellData);
+                          fetchStudentDetails(cellData);
+                        }
                       }}
                     >
                       <div className="font-bold">{cellData.student_count}</div>
