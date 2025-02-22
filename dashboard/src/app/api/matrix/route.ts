@@ -124,13 +124,7 @@ export async function GET(request: Request) {
       // Single grade filter
       if (subject === 'campus') {
         query = `
-          SELECT 
-            COALESCE(m.staar_level, r.staar_level) as staar_level,
-            COALESCE(m.benchmark_level, r.benchmark_level) as benchmark_level,
-            SUM(COALESCE(m.student_count, 0) + COALESCE(r.student_count, 0)) as student_count,
-            COALESCE(m.group_number, r.group_number) as group_number
-          FROM (
-            -- Math query for single grade
+          WITH MathData AS (
             SELECT 
               \`2024 STAAR Performance\` as staar_level,
               \`2024-25 Benchmark Performance\` as benchmark_level,
@@ -139,29 +133,42 @@ export async function GET(request: Request) {
             FROM ${grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data'}
             WHERE Grade = ?
             ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-            ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
-            GROUP BY \`2024 STAAR Performance\`, \`2024-25 Benchmark Performance\`, \`Group #\`
-          ) m
-          FULL OUTER JOIN (
-            -- RLA query for single grade
+            GROUP BY 
+              \`2024 STAAR Performance\`,
+              \`2024-25 Benchmark Performance\`,
+              \`Group #\`
+          ),
+          RLAData AS (
             SELECT 
               STAAR_Performance as staar_level,
               Benchmark_Performance as benchmark_level,
               COUNT(*) as student_count,
               Group_Number as group_number
             FROM ${grade === '7' ? 'rla_data7' : 'rla_data8'}
-            WHERE 1=1
-            ${teacher ? 'AND Teacher = ?' : ''}
-            GROUP BY STAAR_Performance, Benchmark_Performance, Group_Number
-          ) r
-          ON m.staar_level = r.staar_level 
-          AND m.benchmark_level = r.benchmark_level
-          AND m.group_number = r.group_number
+            GROUP BY 
+              STAAR_Performance,
+              Benchmark_Performance,
+              Group_Number
+          )
+          SELECT 
+            staar_level,
+            benchmark_level,
+            CAST(SUM(student_count) AS SIGNED) as student_count,
+            group_number
+          FROM (
+            SELECT * FROM MathData
+            UNION ALL
+            SELECT * FROM RLAData
+          ) combined
           GROUP BY 
-            COALESCE(m.staar_level, r.staar_level),
-            COALESCE(m.benchmark_level, r.benchmark_level),
-            COALESCE(m.group_number, r.group_number)
+            staar_level,
+            benchmark_level,
+            group_number
+          ORDER BY 
+            FIELD(staar_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters'),
+            FIELD(benchmark_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters')
         `;
+        params = [grade];
       } else if (subject === 'rla') {
         const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
         query = `

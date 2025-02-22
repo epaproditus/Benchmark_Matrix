@@ -162,17 +162,20 @@ const PerformanceMatrix = () => {
       if (selectedGrade) {
         url.searchParams.append('grade', selectedGrade);
       }
-      // Add this line to send version parameter
       url.searchParams.append('version', selectedVersion);
-      url.searchParams.append('subject', selectedSubject); // Add subject parameter
+      url.searchParams.append('subject', selectedSubject);
 
       const response = await fetch(url);
       const data = await response.json();
-      setMatrixData(data.matrixData);
-      setStaarTotals(data.staarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
-        acc[curr.level] = curr.total;
+      
+      setMatrixData(data.matrixData || []);
+      setStaarTotals((data.staarTotals || []).reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
+        if (curr && curr.level) {  // Added null check for curr object
+          acc[curr.level] = curr.total || 0;  // Added default of 0 for total
+        }
         return acc;
       }, {}));
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
