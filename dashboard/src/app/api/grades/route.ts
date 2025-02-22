@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../lib/db';
+import { Grade } from '../../../types/api';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -35,10 +36,10 @@ export async function GET(request: Request) {
     await connection.end();
 
     return NextResponse.json({ 
-      grades: grades.map((g: any) => g.Grade),
+      grades: (grades as Grade[]).map(g => g.Grade),
       hasData: {
-        '7': grades.some((g: any) => g.Grade === '7'),
-        '8': grades.some((g: any) => g.Grade === '8')
+        '7': (grades as Grade[]).some(g => g.Grade === '7'),
+        '8': (grades as Grade[]).some(g => g.Grade === '8')
       }
     });
   } catch (error) {

@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../lib/db';
+import { DatabaseParams, Teacher, TeacherResponse } from '../../../types/api';
+
+interface GradeResult {
+  Grade: string;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,7 +18,7 @@ export async function GET(request: Request) {
     // Different query structure for RLA
     if (subject === 'rla') {
       let query = '';
-      const params = [];
+      const params: DatabaseParams = [];
 
       if (grade) {
         const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
@@ -40,7 +45,7 @@ export async function GET(request: Request) {
       await connection.end();
 
       return NextResponse.json({ 
-        teachers: teachers.map((t: any) => ({
+        teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
           name: t.teacher,
           grade: t.Grade
         })),
@@ -73,7 +78,7 @@ export async function GET(request: Request) {
     }
     
     const [grades] = await connection.execute(gradesQuery);
-    const availableGrades = grades.map((g: any) => g.Grade);
+    const availableGrades = (grades as GradeResult[]).map(g => g.Grade);
 
     let query = '';
     const params = [];
@@ -136,7 +141,7 @@ export async function GET(request: Request) {
     await connection.end();
 
     return NextResponse.json({ 
-      teachers: teachers.map((t: any) => ({
+      teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
         name: t.teacher,
         grade: t.Grade
       })),

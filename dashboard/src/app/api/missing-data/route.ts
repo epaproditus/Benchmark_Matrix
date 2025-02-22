@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../lib/db';
+import { DatabaseParams } from '../../../types/api';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const connection = await connectToDatabase();
 
@@ -59,9 +60,8 @@ export async function POST(request: Request) {
     const { localId, benchmarkScore, staarScore } = await request.json();
     const connection = await connectToDatabase();
 
-    // Fixed SQL query construction
-    let updateFields = [];
-    let params = [];
+    const updateFields: string[] = [];
+    const params: DatabaseParams = [];
 
     if (benchmarkScore !== undefined) {
       updateFields.push('`Benchmark PercentScore` = ?');
