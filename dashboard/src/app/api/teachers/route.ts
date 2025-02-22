@@ -5,9 +5,48 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const grade = searchParams.get('grade');
   const version = searchParams.get('version') || 'spring';
-  
+  const subject = searchParams.get('subject') || 'math'; // Add subject parameter
+
   try {
     const connection = await connectToDatabase();
+
+    // Different query structure for RLA
+    if (subject === 'rla') {
+      let query = '';
+      const params = [];
+
+      if (grade) {
+        const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
+        query = `
+          SELECT DISTINCT Teacher as teacher, Grade
+          FROM ${tableName}
+          WHERE Teacher != 'Not Assigned'
+          ORDER BY Teacher
+        `;
+      } else {
+        query = `
+          SELECT DISTINCT Teacher as teacher, Grade
+          FROM (
+            SELECT Teacher, Grade FROM rla_data7
+            UNION ALL
+            SELECT Teacher, Grade FROM rla_data8
+          ) combined
+          WHERE Teacher != 'Not Assigned'
+          ORDER BY Grade, Teacher
+        `;
+      }
+
+      const [teachers] = await connection.execute(query, params);
+      await connection.end();
+
+      return NextResponse.json({ 
+        teachers: teachers.map((t: any) => ({
+          name: t.teacher,
+          grade: t.Grade
+        })),
+        gradeHasData: true
+      });
+    }
 
     // Modified gradesQuery to include spring7_matrix_view
     let gradesQuery = '';

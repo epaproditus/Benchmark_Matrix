@@ -120,7 +120,7 @@ const PerformanceMatrix = () => {
 
   useEffect(() => {
     fetchTeachers();
-  }, [selectedGrade]);
+  }, [selectedGrade, selectedVersion, selectedSubject]);
 
   useEffect(() => {
     fetchData();
@@ -187,6 +187,7 @@ const PerformanceMatrix = () => {
         url.searchParams.append('grade', selectedGrade);
       }
       url.searchParams.append('version', selectedVersion);
+      url.searchParams.append('subject', selectedSubject); // Add subject parameter
       
       const response = await fetch(url);
       const data = await response.json();
