@@ -636,46 +636,68 @@ const PerformanceMatrix = () => {
               >
                 ✕
               </button>
-            <h3 className="text-xl font-bold mb-4">
-              Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
-            </h3>
-            <div className="overflow-x-auto">
-              <div className="space-y-6">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="border border-white p-2">First Name</th>
-                      <th className="border border-white p-2">Last Name</th>
-                      <th className="border border-white p-2">Grade</th>
-                      <th className="border border-white p-2">STAAR Score</th>
-                      <th className="border border-white p-2">Benchmark Score</th>
-                      <th className="border border-white p-2">Teacher</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedStudents.map((student, index) => (
-                      <tr key={index} className="hover:bg-gray-800">
-                        <td className="border border-white p-2">
-                          <button 
-                            onClick={() => {
-                              fetchStudentAssessments(student.local_id);
-                              setShowAssessments(true);
-                            }}
-                            className="text-blue-400 hover:text-blue-300 underline"
-                          >
-                            {student['First Name']}
-                          </button>
-                        </td>
-                        <td className="border border-white p-2">{student['Last Name']}</td>
-                        <td className="border border-white p-2">{student.Grade}</td>
-                        <td className="border border-white p-2">{student.staar_score}</td>
-                        <td className="border border-white p-2">{student.benchmark_score}</td>
-                        <td className="border border-white p-2">{student.Teacher}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <h3 className="text-xl font-bold mb-4">
+                Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedStudents.map((student, index) => {
+                  const mathColorClass = selectedCell.group_number ? 
+                    getCellColor(selectedCell.group_number, 1) : 
+                    'bg-gray-900';
+
+                  const rlaColorClass = student.rla_group_number ? 
+                    getCellColor(student.rla_group_number, 1) : 
+                    'bg-gray-900';
+
+                  return (
+                    <div key={index} 
+                      className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
+                    >
+                      <div className="mb-2">
+                        <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                        <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-sm">
+                        {/* RLA Scores */}
+                        <div className={`${rlaColorClass} p-2 rounded`}>
+                          <div className="font-bold opacity-75 text-xs mb-1">RLA STAAR</div>
+                          <div>{student.rla_staar_score || 'N/A'}</div>
+                          <div className="text-xs">{student.rla_staar_level || 'N/A'}</div>
+                        </div>
+
+                        <div className={`${rlaColorClass} p-2 rounded`}>
+                          <div className="font-bold opacity-75 text-xs mb-1">RLA Benchmark</div>
+                          <div>{student.rla_benchmark_score || 'N/A'}</div>
+                          <div className="text-xs">{student.rla_benchmark_level || 'N/A'}</div>
+                          {student.rla_group_number && (
+                            <div className="text-xs font-bold mt-1">
+                              Group {student.rla_group_number}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Math Scores */}
+                        <div className={`${mathColorClass} p-2 rounded`}>
+                          <div className="font-bold opacity-75 text-xs mb-1">Math STAAR</div>
+                          <div>{student.staar_score || 'N/A'}</div>
+                          <div className="text-xs">{student.staar_level || 'N/A'}</div>
+                        </div>
+
+                        <div className={`${mathColorClass} p-2 rounded`}>
+                          <div className="font-bold opacity-75 text-xs mb-1">Math Benchmark</div>
+                          <div>{student.benchmark_score || 'N/A'}</div>
+                          <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
+                          {student.group_number && (
+                            <div className="text-xs font-bold mt-1">
+                              Group {student.group_number}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
