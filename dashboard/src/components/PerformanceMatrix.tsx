@@ -639,7 +639,7 @@ const PerformanceMatrix = () => {
               <h3 className="text-xl font-bold mb-4">
                 Selected Students - {selectedCell.staar_level} STAAR / {selectedCell.benchmark_level} Benchmark
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {selectedStudents.map((student, index) => {
                   const mathColorClass = selectedCell.group_number ? 
                     getCellColor(selectedCell.group_number, 1) : 
@@ -651,47 +651,27 @@ const PerformanceMatrix = () => {
 
                   return (
                     <div key={index} 
-                      className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
+                      className="p-2 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900 text-sm"
                     >
-                      <div className="mb-2">
-                        <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
-                        <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
+                      <div className="font-bold border-b border-gray-700 pb-1 mb-1">
+                        {student['First Name']} {student['Last Name']}
+                        <div className="text-xs opacity-75">{student.Grade}th • {student.Teacher}</div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-2 text-sm">
-                        {/* RLA Scores */}
-                        <div className={`${rlaColorClass} p-2 rounded`}>
-                          <div className="font-bold opacity-75 text-xs mb-1">RLA STAAR</div>
-                          <div>{student.rla_staar_score || 'N/A'}</div>
-                          <div className="text-xs">{student.rla_staar_level || 'N/A'}</div>
-                        </div>
-
-                        <div className={`${rlaColorClass} p-2 rounded`}>
-                          <div className="font-bold opacity-75 text-xs mb-1">RLA Benchmark</div>
-                          <div>{student.rla_benchmark_score || 'N/A'}</div>
-                          <div className="text-xs">{student.rla_benchmark_level || 'N/A'}</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className={`${rlaColorClass} p-1 rounded text-xs`}>
+                          <div>RLA: {student.rla_staar_score || '-'}</div>
+                          <div>{student.rla_benchmark_score || '-'}</div>
                           {student.rla_group_number && (
-                            <div className="text-xs font-bold mt-1">
-                              Group {student.rla_group_number}
-                            </div>
+                            <div className="font-bold">G{student.rla_group_number}</div>
                           )}
                         </div>
 
-                        {/* Math Scores */}
-                        <div className={`${mathColorClass} p-2 rounded`}>
-                          <div className="font-bold opacity-75 text-xs mb-1">Math STAAR</div>
-                          <div>{student.staar_score || 'N/A'}</div>
-                          <div className="text-xs">{student.staar_level || 'N/A'}</div>
-                        </div>
-
-                        <div className={`${mathColorClass} p-2 rounded`}>
-                          <div className="font-bold opacity-75 text-xs mb-1">Math Benchmark</div>
-                          <div>{student.benchmark_score || 'N/A'}</div>
-                          <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
+                        <div className={`${mathColorClass} p-1 rounded text-xs`}>
+                          <div>Math: {student.staar_score || '-'}</div>
+                          <div>{student.benchmark_score || '-'}</div>
                           {student.group_number && (
-                            <div className="text-xs font-bold mt-1">
-                              Group {student.group_number}
-                            </div>
+                            <div className="font-bold">G{student.group_number}</div>
                           )}
                         </div>
                       </div>
