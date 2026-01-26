@@ -26,12 +26,31 @@ export default function MissingData() {
 
   const { addContextHelper, removeContextHelper } = useTamboContextHelpers();
 
+  const fetchData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/missing-data');
+      const data = await response.json();
+      setMissingBenchmark(Array.isArray(data.missingBenchmark) ? data.missingBenchmark : []);
+      setMissingStaar(Array.isArray(data.missingStaar) ? data.missingStaar : []);
+    } catch (error) {
+      console.error('Error fetching missing data:', error);
+      setMissingBenchmark([]);
+      setMissingStaar([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
 
     // Listen for AI-triggered actions
     const handleAction = (e: Event) => {
       const customEvent = e as CustomEvent;
+      if (customEvent.detail?.action === 'refresh') {
+        fetchData();
+        return;
+      }
       if (customEvent.detail?.component === 'MissingData') {
         if (customEvent.detail.action === 'reset') {
           setTableConfig({
@@ -47,7 +66,7 @@ export default function MissingData() {
     };
     window.addEventListener('tambo-action', handleAction);
     return () => window.removeEventListener('tambo-action', handleAction);
-  }, []);
+  }, [fetchData]);
 
 
   const processData = useCallback((data: Student[]) => {
@@ -110,20 +129,7 @@ export default function MissingData() {
     return () => removeContextHelper("missingStudents");
   }, [missingBenchmark, missingStaar, tableConfig, addContextHelper, removeContextHelper, processData]);
 
-  const fetchData = async () => {
-    try {
-      const response = await fetch('/api/missing-data');
-      const data = await response.json();
-      setMissingBenchmark(Array.isArray(data.missingBenchmark) ? data.missingBenchmark : []);
-      setMissingStaar(Array.isArray(data.missingStaar) ? data.missingStaar : []);
-    } catch (error) {
-      console.error('Error fetching missing data:', error);
-      setMissingBenchmark([]);
-      setMissingStaar([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const updateScore = async (localId: string, benchmarkScore?: number, staarScore?: number) => {
     try {

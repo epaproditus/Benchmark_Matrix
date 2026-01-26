@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       const [teachers] = await connection.execute(query, params);
       await connection.end();
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
           name: t.teacher,
           grade: t.Grade
@@ -76,9 +76,17 @@ export async function GET(request: Request) {
         ORDER BY Grade
       `;
     }
-    
+
     const [grades] = await connection.execute(gradesQuery);
     const availableGrades = (grades as GradeResult[]).map(g => g.Grade);
+
+    if (availableGrades.length === 0) {
+      await connection.end();
+      return NextResponse.json({
+        teachers: [],
+        gradeHasData: false
+      });
+    }
 
     let query = '';
     const params = [];
@@ -138,9 +146,9 @@ export async function GET(request: Request) {
     }
 
     const [teachers] = await connection.execute(query, params);
-    await connection.end();
+    // connection.release() will be called in finally
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
         name: t.teacher,
         grade: t.Grade
@@ -150,5 +158,9 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Database error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } finally {
+    if (connection) {
+      await connection.release(); // Ensure connection is released
+    }
   }
 }

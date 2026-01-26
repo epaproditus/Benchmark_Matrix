@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useTamboContextHelpers } from '@tambo-ai/react';
+import { UnifiedStudentScoresTable } from './UnifiedStudentScoresTable';
 
 interface Student {
   id: number;
@@ -20,6 +21,8 @@ interface Student {
   rla_benchmark_score?: number;
   rla_staar_level?: string;
   rla_benchmark_level?: string;
+  fall_benchmark_score?: number | string;
+  spring_benchmark_score?: number | string;
 }
 
 interface Assessment {
@@ -133,7 +136,7 @@ const PerformanceMatrix = () => {
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring-algebra');
   const [hasTeacherData, setHasTeacherData] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('campus');
+  const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('math');
   const [availableGrades, setAvailableGrades] = useState<{
     grades: string[];
     hasData: { [key: string]: boolean };
@@ -141,9 +144,142 @@ const PerformanceMatrix = () => {
 
   const { addContextHelper, removeContextHelper } = useTamboContextHelpers();
 
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      setConfig(data);
+    } catch (err) {
+      console.error('Error fetching config:', err);
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const url = new URL('/api/matrix', window.location.origin);
+      if (selectedTeacher) {
+        url.searchParams.append('teacher', selectedTeacher);
+      }
+      if (selectedGrade) {
+        url.searchParams.append('grade', selectedGrade);
+      }
+      url.searchParams.append('version', selectedVersion);
+      url.searchParams.append('subject', selectedSubject);
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('PerformanceMatrix data received:', data);
+
+      if (!data) {
+        console.warn('Received null/empty data from API');
+        setMatrixData([]);
+        setStaarTotals({});
+        setLoading(false);
+        return;
+      }
+
+      const safeMatrixData = Array.isArray(data.matrixData) ? data.matrixData : [];
+      setMatrixData(safeMatrixData);
+
+      const rawStaarTotals = Array.isArray(data.staarTotals) ? data.staarTotals : [];
+      const safeStaarTotals = rawStaarTotals.reduce((acc: { [key: string]: number }, curr: { level?: string | number; total?: string | number }) => {
+        if (curr && curr.level !== undefined) {
+          const count = Number(curr.total);
+          acc[String(curr.level)] = isNaN(count) ? 0 : count;
+        }
+        return acc;
+      }, {});
+      setStaarTotals(safeStaarTotals);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('PerformanceMatrix fetchData error:', error);
+      setMatrixData([]);
+      setStaarTotals({});
+      setLoading(false);
+    }
+  }, [selectedTeacher, selectedGrade, selectedVersion, selectedSubject]);
+
+  const fetchTeachers = useCallback(async () => {
+    // Fall data doesn't have teacher/grade metadata yet, so skip fetching
+    if (selectedVersion === 'fall') {
+      setTeachers([]);
+      setHasTeacherData(false);
+      return;
+    }
+
+    try {
+      const url = new URL('/api/teachers', window.location.origin);
+      if (selectedGrade) {
+        url.searchParams.append('grade', selectedGrade);
+      }
+      url.searchParams.append('version', selectedVersion);
+      url.searchParams.append('subject', selectedSubject); // Add subject parameter
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+
+      if (!data) {
+        console.warn('PerformanceMatrix: fetchTeachers received empty data');
+        setTeachers([]);
+        setHasTeacherData(false);
+        return;
+      }
+
+      setTeachers(Array.isArray(data.teachers) ? data.teachers : []);
+      setHasTeacherData(!!data.gradeHasData);
+
+      // Reset teacher selection if no data available
+      if (!data.gradeHasData) {
+        setSelectedTeacher(null);
+      }
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+    }
+  }, [selectedGrade, selectedVersion, selectedSubject]);
+
+  const fetchAvailableGrades = useCallback(async () => {
+    // Fall data lacks grade metadata
+    if (selectedVersion === 'fall') {
+      setAvailableGrades({ grades: [], hasData: {} });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/grades?version=${selectedVersion}`);
+      if (!response.ok) throw new Error('Failed to fetch grades');
+
+      const data = await response.json();
+
+      if (!data) {
+        setAvailableGrades({ grades: [], hasData: {} });
+        return;
+      }
+
+      setAvailableGrades({
+        grades: Array.isArray(data?.grades) ? data.grades : [],
+        hasData: data?.hasData || {}
+      });
+    } catch (error) {
+      console.error('Error fetching grades:', error);
+    }
+  }, [selectedVersion]);
+
   useEffect(() => {
     const handleAction = (e: Event) => {
       const customEvent = e as CustomEvent;
+      if (customEvent.detail?.action === 'refresh') {
+        fetchData();
+        fetchConfig();
+        return;
+      }
       if (customEvent.detail?.component === 'PerformanceMatrix') {
         const config = customEvent.detail.config;
         if (config.subject) setSelectedSubject(config.subject);
@@ -157,7 +293,7 @@ const PerformanceMatrix = () => {
     };
     window.addEventListener('tambo-action', handleAction);
     return () => window.removeEventListener('tambo-action', handleAction);
-  }, []);
+  }, [fetchData, fetchConfig]);
 
   useEffect(() => {
     addContextHelper("dashboardFilters", () => ({
@@ -182,15 +318,13 @@ const PerformanceMatrix = () => {
 
   // Fetch config on mount
   useEffect(() => {
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => setConfig(data))
-      .catch(err => console.error('Error fetching config:', err));
-  }, []);
+    fetchConfig();
+  }, [fetchConfig]);
 
   const subjectConfig = config?.thresholds?.[selectedSubject === 'rla' ? 'rla' : 'math'];
 
-  const previousLevels = subjectConfig?.previous?.map((t: Threshold) => t.label) || [
+  const previousLevels = (subjectConfig?.previous || []).map((t: Threshold) => t?.label).filter(Boolean) as string[];
+  const finalPreviousLevels = previousLevels.length > 0 ? previousLevels : [
     'Did Not Meet Low',
     'Did Not Meet High',
     'Approaches Low',
@@ -199,7 +333,8 @@ const PerformanceMatrix = () => {
     'Masters'
   ];
 
-  const currentLevels = subjectConfig?.current?.map((t: Threshold) => t.label) || [
+  const currentLevels = (subjectConfig?.current || []).map((t: Threshold) => t?.label).filter(Boolean) as string[];
+  const finalCurrentLevels = currentLevels.length > 0 ? currentLevels : [
     'Did Not Meet Low',
     'Did Not Meet High',
     'Approaches Low',
@@ -210,76 +345,6 @@ const PerformanceMatrix = () => {
 
   const xAxisLabel = config?.labels?.xAxis || 'Current Benchmark';
   const yAxisLabel = config?.labels?.yAxis || 'Previous Performance';
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = new URL('/api/matrix', window.location.origin);
-      if (selectedTeacher) {
-        url.searchParams.append('teacher', selectedTeacher);
-      }
-      if (selectedGrade) {
-        url.searchParams.append('grade', selectedGrade);
-      }
-      url.searchParams.append('version', selectedVersion);
-      url.searchParams.append('subject', selectedSubject);
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      setMatrixData(Array.isArray(data.matrixData) ? data.matrixData : []);
-      const rawStaarTotals = Array.isArray(data.staarTotals) ? data.staarTotals : [];
-      setStaarTotals(rawStaarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
-        if (curr && curr.level) {
-          acc[curr.level] = curr.total || 0;
-        }
-        return acc;
-      }, {}));
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setLoading(false);
-    }
-  }, [selectedTeacher, selectedGrade, selectedVersion, selectedSubject]);
-
-  const fetchTeachers = useCallback(async () => {
-    try {
-      const url = new URL('/api/teachers', window.location.origin);
-      if (selectedGrade) {
-        url.searchParams.append('grade', selectedGrade);
-      }
-      url.searchParams.append('version', selectedVersion);
-      url.searchParams.append('subject', selectedSubject); // Add subject parameter
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      setTeachers(Array.isArray(data.teachers) ? data.teachers : []);
-      setHasTeacherData(!!data.gradeHasData);
-
-      // Reset teacher selection if no data available
-      if (!data.gradeHasData) {
-        setSelectedTeacher(null);
-      }
-    } catch (error) {
-      console.error('Error fetching teachers:', error);
-    }
-  }, [selectedGrade, selectedVersion, selectedSubject]);
-
-  // Add function to fetch grades
-  const fetchAvailableGrades = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/grades?version=${selectedVersion}`);
-      const data = await response.json();
-      setAvailableGrades({
-        grades: Array.isArray(data?.grades) ? data.grades : [],
-        hasData: data?.hasData || {}
-      });
-    } catch (error) {
-      console.error('Error fetching grades:', error);
-    }
-  }, [selectedVersion]);
 
   useEffect(() => {
     fetchTeachers();
@@ -378,27 +443,30 @@ const PerformanceMatrix = () => {
   };
 
   const getCellColor = (groupNumber: number, value: number): string => {
-    if (value === 0) return 'bg-white';
+    if (value === 0) return 'bg-black text-gray-500';
 
     if (selectedSubject === 'rla') {
-      // Red cells - No Growth
-      if ([2, 3, 4, 5, 6, 9, 10, 11, 12, 16, 17, 18, 23, 24, 30, 36].includes(groupNumber)) {
+      // Red cells - No Growth / Regression (Using the list that was previously Green)
+      if ([1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(groupNumber)) {
         return 'bg-red-200 text-red-800';
       }
       // Blue cells - Moderate Growth
       if ([15, 22, 29].includes(groupNumber)) {
         return 'bg-blue-200 text-blue-800';
       }
-      // Green cells - Expected Growth
+      // Green cells - Expected/Accelerated Growth (Using the list that was previously Red)
+      // Masters->Masters (36) is here now.
       return 'bg-green-200 text-green-800';
     } else {
-      // Existing math color logic
-      if ([36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(groupNumber)) {
+      // Existing math color logic - Swapping Red/Green lists
+      // Former Green list becomes Red (1, 7, 8...)
+      if ([1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(groupNumber)) {
         return 'bg-red-200 text-red-800';
       }
       if ([29, 22, 15].includes(groupNumber)) {
         return 'bg-blue-200 text-blue-800';
       }
+      // Former Red list becomes Green (36, 30...)
       return 'bg-green-200 text-green-800';
     }
   };
@@ -432,45 +500,44 @@ const PerformanceMatrix = () => {
   };
 
   // Add helper function for points calculation
+  // Wrap calculation in a safe accessor
   const calculateTotalPoints = () => {
-    if (selectedSubject === 'rla') {
-      const pointsMap = {
-        // Base points (1.0) - standard growth categories
-        base: matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 31, 32, 33, 34, 35].includes(d.group_number))
-          .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
+    try {
+      if (!matrixData || !Array.isArray(matrixData)) return 0;
 
-        // Half points (0.5) - moderate growth categories
-        half: matrixData.filter(d => [15, 22, 29].includes(d.group_number))
-          .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
-
-        // Quarter points (0.25) - DNM students showing growth
-        quarter: matrixData.filter(d =>
-          [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-          ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-        ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
-      };
-
-      return pointsMap.base + pointsMap.half + pointsMap.quarter;
-    } else {
-      const pointsMap = {
-        // Base points (1.0) - standard growth categories
-        base: matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
-          .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
-
-        // Half points (0.5) - moderate growth categories
-        half: matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-          .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
-
-        // Quarter points (0.25) - DNM students showing some growth
-        quarter: matrixData.filter(d =>
-          [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-          ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-        ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
-      };
-
-      return pointsMap.base + pointsMap.half + pointsMap.quarter;
+      if (selectedSubject === 'rla') {
+        const pointsMap = {
+          base: matrixData
+            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
+          half: matrixData
+            .filter(d => d && [15, 22, 29].includes(d.group_number))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
+          quarter: matrixData
+            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High', 'Did Not Meet'].includes(d.staar_level))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
+        };
+        return pointsMap.base + pointsMap.half + pointsMap.quarter;
+      } else {
+        const pointsMap = {
+          base: matrixData
+            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
+          half: matrixData
+            .filter(d => d && [29, 22, 15].includes(d.group_number))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
+          quarter: matrixData
+            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
+            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
+        };
+        return pointsMap.base + pointsMap.half + pointsMap.quarter;
+      }
+    } catch (err) {
+      console.error('Error calculating total points:', err);
+      return 0;
     }
   };
+
 
   if (!isMounted) return null;
 
@@ -478,244 +545,223 @@ const PerformanceMatrix = () => {
     return <div>Loading...</div>;
   }
 
+  const getThresholdLabel = (label: string, type: 'current' | 'previous') => {
+    const thresholds = type === 'previous' ? subjectConfig?.previous : subjectConfig?.current;
+    if (thresholds) {
+      const t = thresholds.find((t: Threshold) => t.label === label);
+      // Only show range if min/max are numbers
+      if (t && typeof t.min === 'number' && typeof t.max === 'number') {
+        return (
+          <div className="flex flex-col">
+            <span>{label}</span>
+            <span className="text-xs opacity-75 font-normal">({t.min}-{t.max})</span>
+          </div>
+        );
+      }
+    }
+    return label;
+  };
+
   return (
     <div className="p-4">
       <div className="mb-4 bg-black text-white p-4 rounded">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-end">
           <div className="flex gap-4">
-            <div>
-              <label htmlFor="subject-select" className="mr-2">Subject:</label>
-              <select
-                id="subject-select"
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value as 'math' | 'rla' | 'campus')}
-                className="bg-black text-white border border-white rounded px-2 py-1"
-              >
-                <option value="campus">Campus View</option>
-                <option value="math">Mathematics</option>
-                <option value="rla">Reading Language Arts</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="version-select" className="mr-2">Assessment:</label>
-              <select
-                id="version-select"
-                value={selectedVersion}
-                onChange={(e) => setSelectedVersion(e.target.value as 'fall' | 'spring' | 'spring-algebra')}
-                className="bg-black text-white border border-white rounded px-2 py-1"
-              >
-                {getVersionOptions().map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="grade-select" className="mr-2">Grade Level:</label>
-              <select
-                id="grade-select"
-                value={selectedGrade || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedGrade(value || null);
-                  setSelectedTeacher(null); // Reset teacher when grade changes
-                }}
-                className="bg-black text-white border border-white rounded px-2 py-1"
-              >
-                <option value="">All Grades</option>
-                {['7', '8'].map((grade) => (
-                  availableGrades.hasData[grade] ? (
-                    <option key={grade} value={grade}>
-                      {grade}th Grade
-                    </option>
-                  ) : (
-                    <option key={grade} value={grade} disabled className="text-gray-500">
-                      {grade}th Grade (No Data)
-                    </option>
-                  )
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="teacher-select" className="mr-2">Filter by Teacher:</label>
-              <select
-                id="teacher-select"
-                value={selectedTeacher || ''}
-                onChange={(e) => setSelectedTeacher(e.target.value)}
-                className="bg-black text-white border border-white rounded px-2 py-1"
-                disabled={!hasTeacherData}
-              >
-                <option value="">All Teachers</option>
-                {teachers.map((teacher, index) => (
-                  <option key={index} value={teacher.name}>
-                    {teacher.name} ({teacher.grade}th)
-                  </option>
-                ))}
-              </select>
-              {!hasTeacherData && selectedGrade && (
-                <div className="text-gray-500 text-sm mt-1">
-                  No teacher data available for selected grade
-                </div>
-              )}
-            </div>
+            {/* Subject selector could go here if needed, but it's currently managed via Tambo actions */}
           </div>
-          <div className="text-right">
-            <h3 className="font-bold mb-2">Academic Growth Score Scale:</h3>
-            <div className="grid grid-cols-5 gap-4">
-              <div className="text-green-600">A: 80+</div>
-              <div className="text-blue-600">B: 68-79</div>
-              <div className="text-purple-600">C: 61-67</div>
-              <div className="text-red-600">D: 55-60</div>
-              <div className="text-red-600">F: 55</div>
-            </div>
+
+          <div className="flex items-center">
+            <label htmlFor="search" className="mr-2 text-sm font-bold">Search:</label>
+            <input
+              type="text"
+              id="search"
+              placeholder="Name or ID"
+              onChange={async (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                // Clear results if search is too short or empty
+                if (searchTerm.length < 2) {
+                  setSearchResults([]);
+                  return;
+                }
+
+                try {
+                  const response = await fetch('/api/matrix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      search: searchTerm,
+                      teacher: selectedTeacher || undefined,
+                      grade: selectedGrade,
+                      version: selectedVersion,
+                      subject: selectedSubject
+                    }),
+                  });
+                  const data = await response.json();
+                  setSearchResults(Array.isArray(data.students) ? data.students : []);
+                } catch (error) {
+                  console.error('Error searching:', error);
+                }
+              }}
+              className="bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:border-white outline-none w-48"
+            />
           </div>
+          {!hasTeacherData && selectedGrade && (
+            <div className="text-gray-500 text-sm mt-1">
+              No teacher data available for selected grade
+            </div>
+          )}
         </div>
+
       </div>
 
-      {selectedSubject === 'campus' && (
-        <div className="mt-4 mb-4 p-4 bg-blue-100 text-blue-800 rounded">
-          <strong>Note:</strong> Campus view shows combined data from both subjects. To see individual student performance and details, please select either Mathematics or Reading Language Arts from the subject dropdown.
+
+
+
+      {/* Display filtered student as a line */}
+      {searchResults.length > 0 && (
+        <div className="bg-black text-white p-4 rounded border border-gray-700">
+          <h4 className="font-bold mb-4">Matching Students ({searchResults.length})</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {searchResults.map((student, index) => {
+              // Get the math color class
+              const mathColorClass = student.group_number ?
+                getCellColor(student.group_number, 1) :
+                'bg-gray-900';
+
+              // Get the RLA color class
+              const rlaColorClass = student.rla_group_number ?
+                getCellColor(student.rla_group_number, 1) :
+                'bg-gray-900';
+
+              return (
+                <div key={index}
+                  className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
+                >
+                  <div className="mb-2">
+                    <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                    <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+
+                    {/* STAAR Scores */}
+                    <div className={`${mathColorClass} p-2 rounded`}>
+                      <div className="font-bold opacity-75 text-xs mb-1">STAAR</div>
+                      <div>{student.staar_score || 'N/A'}</div>
+                      <div className="text-xs">{student.staar_level || 'N/A'}</div>
+                    </div>
+
+                    {/* Fall Benchmark */}
+                    <div className={`${mathColorClass} p-2 rounded`}>
+                      <div className="font-bold opacity-75 text-xs mb-1">Fall</div>
+                      <div>{student.fall_benchmark_score || 'N/A'}</div>
+                      <div className="text-xs opacity-75">Benchmark</div>
+                    </div>
+
+                    {/* Spring Benchmark */}
+                    <div className={`${mathColorClass} p-2 rounded relative`}>
+                      <div className="font-bold opacity-75 text-xs mb-1">Spring</div>
+                      {student.spring_benchmark_score ? (
+                        <>
+                          <div>{student.spring_benchmark_score}</div>
+                          <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
+                        </>
+                      ) : (
+                        <div className="border-2 border-dashed border-white/30 h-8 w-8 rounded-full flex items-center justify-center mx-auto mt-1 opacity-50 text-xs">
+                          ?
+                        </div>
+                      )}
+
+                      {student.group_number && (
+                        <div className="text-xs font-bold mt-1">
+                          Group {student.group_number}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {searchResults.length > 1 && (
+        <div className="text-sm text-gray-600">
+          Found {searchResults.length} matching students. Please refine your search.
         </div>
       )}
 
-      {/* Search Functionality */}
-      <div className="mb-4 space-y-4">
-        <div>
-          <label htmlFor="search" className="mr-2">Search by Name or ID:</label>
-          <input
-            type="text"
-            id="search"
-            placeholder="Enter name or ID"
-            onChange={async (e) => {
-              const searchTerm = e.target.value.toLowerCase();
-              if (searchTerm.length < 2) {
-                setSearchResults([]);
-                return;
-              }
 
-              try {
-                const response = await fetch('/api/matrix', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    search: searchTerm,
-                    teacher: selectedTeacher || undefined,
-                    grade: selectedGrade,
-                    version: selectedVersion,
-                    subject: selectedSubject  // Add subject to search
-                  }),
-                });
-                const data = await response.json();
-                setSearchResults(Array.isArray(data.students) ? data.students : []);
-              } catch (error) {
-                console.error('Error searching students:', error);
-              }
-            }}
-            className="bg-black text-white border border-white rounded px-2 py-1"
-          />
-        </div>
 
-        {/* Display filtered student as a line */}
-        {searchResults.length > 0 && (
-          <div className="bg-black text-white p-4 rounded border border-gray-700">
-            <h4 className="font-bold mb-4">Matching Students ({searchResults.length})</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {searchResults.map((student, index) => {
-                // Get the math color class
-                const mathColorClass = student.group_number ?
-                  getCellColor(student.group_number, 1) :
-                  'bg-gray-900';
-
-                // Get the RLA color class
-                const rlaColorClass = student.rla_group_number ?
-                  getCellColor(student.rla_group_number, 1) :
-                  'bg-gray-900';
-
-                return (
-                  <div key={index}
-                    className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
-                  >
-                    <div className="mb-2">
-                      <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
-                      <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-2 text-sm">
-                      {/* RLA Scores */}
-                      <div className={`${rlaColorClass} p-2 rounded`}>
-                        <div className="font-bold opacity-75 text-xs mb-1">RLA STAAR</div>
-                        <div>{student.rla_staar_score || 'N/A'}</div>
-                        <div className="text-xs">{student.rla_staar_level || 'N/A'}</div>
-                      </div>
-
-                      <div className={`${rlaColorClass} p-2 rounded`}>
-                        <div className="font-bold opacity-75 text-xs mb-1">RLA Benchmark</div>
-                        <div>{student.rla_benchmark_score || 'N/A'}</div>
-                        <div className="text-xs">{student.rla_benchmark_level || 'N/A'}</div>
-                        {student.rla_group_number && (
-                          <div className="text-xs font-bold mt-1">
-                            Group {student.rla_group_number}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Math Scores */}
-                      <div className={`${mathColorClass} p-2 rounded`}>
-                        <div className="font-bold opacity-75 text-xs mb-1">Math STAAR</div>
-                        <div>{student.staar_score || 'N/A'}</div>
-                        <div className="text-xs">{student.staar_level || 'N/A'}</div>
-                      </div>
-
-                      <div className={`${mathColorClass} p-2 rounded`}>
-                        <div className="font-bold opacity-75 text-xs mb-1">Math Benchmark</div>
-                        <div>{student.benchmark_score || 'N/A'}</div>
-                        <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
-                        {student.group_number && (
-                          <div className="text-xs font-bold mt-1">
-                            Group {student.group_number}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+      <div className="mt-8 flex justify-between items-center bg-zinc-900 border border-zinc-800 p-6 rounded-xl gap-8">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
+          <div className="text-lg bg-black text-white p-4 rounded-lg border border-white/20">
+            <div className="flex justify-between">
+              <span className="opacity-75">Total Points:</span>
+              <span className="font-mono font-bold">{calculateTotalPoints().toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="opacity-75">Total Students:</span>
+              <span className="font-mono font-bold">{matrixData.reduce((sum, d) => sum + d.student_count, 0)}</span>
             </div>
           </div>
-        )}
-        {searchResults.length > 1 && (
-          <div className="text-sm text-gray-600">
-            Found {searchResults.length} matching students. Please refine your search.
-          </div>
-        )}
-      </div>
+        </div>
 
-      {/* New Section for Total Points Calculation */}
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
-        <div className="border p-4 bg-black text-white rounded">
-          <p className="text-lg">
-            Total Points: {calculateTotalPoints().toFixed(1)}
-          </p>
-          <p className="text-lg">
-            Total Students: {calculateGrandTotal()}
-          </p>
-          <p className="text-lg font-bold">
-            Academic Growth Score:{' '}
-            {(() => {
-              const totalStudents = calculateGrandTotal();
-              const totalPoints = calculateTotalPoints();
-              const score = Math.round((totalPoints / totalStudents) * 100);
-              return (
-                <span className={getGradeColor(score)}>
-                  {score} ({getGradeLabel(score)})
-                </span>
-              );
+        {/* Dynamic Fall/Spring Toggle */}
+        <div className="flex flex-col items-center gap-3 py-4">
+          <span className="text-xs font-bold uppercase tracking-widest opacity-50">Select Assessment</span>
+          <div className="bg-black p-1 rounded-full border border-white/10 flex shadow-inner">
+            <button
+              onClick={() => setSelectedVersion('fall')}
+              className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion === 'fall'
+                  ? 'bg-white text-black shadow-lg scale-105'
+                  : 'text-white/50 hover:text-white'
+                }`}
+            >
+              Fall
+            </button>
+            <button
+              onClick={() => setSelectedVersion('spring-algebra')}
+              className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion !== 'fall'
+                  ? 'bg-white text-black shadow-lg scale-105'
+                  : 'text-white/50 hover:text-white'
+                }`}
+            >
+              Spring
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 text-right">
+          <div className="font-bold text-2xl mb-2">
+            Academic Growth Score: {(() => {
+              const totalStudents = matrixData.reduce((sum, d) => sum + d.student_count, 0);
+              if (totalStudents === 0) return '0.0 (F)';
+              const score = (calculateTotalPoints() / totalStudents) * 100;
+              let grade = 'F';
+              if (score >= 80) grade = 'A';
+              else if (score >= 68) grade = 'B';
+              else if (score >= 61) grade = 'C';
+              else if (score >= 55) grade = 'D';
+
+              let colorClass = 'text-red-500';
+              if (grade === 'A') colorClass = 'text-green-500';
+              if (grade === 'B') colorClass = 'text-blue-500';
+              if (grade === 'C') colorClass = 'text-purple-500';
+              if (grade === 'D') colorClass = 'text-red-500';
+
+              return <span className={colorClass}>{score.toFixed(1)} ({grade})</span>;
             })()}
-          </p>
+          </div>
+          <h3 className="font-bold mb-2">Academic Growth Score Scale:</h3>
+          <div className="grid grid-cols-5 gap-4 bg-black p-3 rounded border border-gray-800">
+            <div className="text-green-500 font-bold">A: 80+</div>
+            <div className="text-blue-500 font-bold">B: 68-79</div>
+            <div className="text-purple-500 font-bold">C: 61-67</div>
+            <div className="text-red-500 font-bold">D: 55-60</div>
+            <div className="text-red-500 font-bold">F: 55</div>
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -758,18 +804,13 @@ const PerformanceMatrix = () => {
                         <div className="text-xs opacity-75">{student.Grade}th • {student.Teacher}</div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-1">
-                        <div className={`${rlaColorClass} p-1 rounded text-xs`}>
-                          <div>RLA: {student.rla_staar_score || '-'}</div>
-                          <div>{student.rla_benchmark_score || '-'}</div>
-                          {student.rla_group_number && (
-                            <div className="font-bold">G{student.rla_group_number}</div>
-                          )}
-                        </div>
-
+                      <div className="grid grid-cols-1">
                         <div className={`${mathColorClass} p-1 rounded text-xs`}>
-                          <div>Math: {student.staar_score || '-'}</div>
-                          <div>{student.benchmark_score || '-'}</div>
+                          <div className="grid grid-cols-2">
+                            <span>{yAxisLabel}: {student.staar_score || '-'}</span>
+                            <span>{xAxisLabel}: {student.benchmark_score || '-'}</span>
+                          </div>
+
                           {student.group_number && (
                             <div className="font-bold">G{student.group_number}</div>
                           )}
@@ -860,17 +901,17 @@ const PerformanceMatrix = () => {
               </th>
             </tr>
             <tr>
-              {currentLevels.map((level, index) => (
+              {finalCurrentLevels.map((level, index) => (
                 <th key={index} className="border p-2 text-sm min-w-[100px]">
-                  {level}
+                  {getThresholdLabel(level, 'current')}
                 </th>
               ))}
               <th className="border p-2 text-sm min-w-[100px] bg-black text-white">Row Total</th>
             </tr>
           </thead>
           <tbody>
-            {previousLevels.map((staarLevel, rowIndex) => {
-              const rowTotal = currentLevels.reduce((sum, benchmarkLevel) => {
+            {finalPreviousLevels.map((staarLevel, rowIndex) => {
+              const rowTotal = finalCurrentLevels.reduce((sum, benchmarkLevel) => {
                 const cellData = getCellData(staarLevel, benchmarkLevel);
                 return sum + cellData.student_count;
               }, 0);
@@ -878,12 +919,12 @@ const PerformanceMatrix = () => {
               return (
                 <tr key={rowIndex}>
                   <td className="border p-2 font-medium min-w-[150px]">
-                    <div>{staarLevel}</div>
+                    {getThresholdLabel(staarLevel, 'previous')}
                     <div className="text-sm text-gray-600">
                       {staarTotals[staarLevel] || 0}
                     </div>
                   </td>
-                  {currentLevels.map((benchmarkLevel, colIndex) => {
+                  {finalCurrentLevels.map((benchmarkLevel, colIndex) => {
                     const cellData = getCellData(staarLevel, benchmarkLevel);
                     return (
                       <td
@@ -911,9 +952,9 @@ const PerformanceMatrix = () => {
           <tfoot>
             <tr className="font-bold">
               <td className="border p-2 bg-black text-white">Column Total</td>
-              {currentLevels.map((_, colIndex) => {
-                const colTotal = previousLevels.reduce((sum, staarLevel) => {
-                  const cellData = getCellData(staarLevel, currentLevels[colIndex]);
+              {finalCurrentLevels.map((_, colIndex) => {
+                const colTotal = finalPreviousLevels.reduce((sum, staarLevel) => {
+                  const cellData = getCellData(staarLevel, finalCurrentLevels[colIndex]);
                   return sum + cellData.student_count;
                 }, 0);
                 return (
@@ -943,23 +984,23 @@ const PerformanceMatrix = () => {
               </th>
             </tr>
             <tr>
-              {currentLevels.map((level, index) => (
+              {finalCurrentLevels.map((level, index) => (
                 <th key={index} className="border p-2 text-sm min-w-[100px]">
-                  {level}
+                  {getThresholdLabel(level, 'current')}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {previousLevels.slice(0, 2).map((staarLevel, rowIndex) => (
+            {finalPreviousLevels.slice(0, 2).map((staarLevel, rowIndex) => (
               <tr key={rowIndex}>
                 <td className="border p-2 font-medium min-w-[150px]">
-                  <div>{staarLevel}</div>
+                  {getThresholdLabel(staarLevel, 'previous')}
                   <div className="text-sm text-gray-600">
                     {staarTotals[staarLevel] || 0}
                   </div>
                 </td>
-                {currentLevels.map((benchmarkLevel, colIndex) => {
+                {finalCurrentLevels.map((benchmarkLevel, colIndex) => {
                   const cellData = getCellData(staarLevel, benchmarkLevel);
                   return (
                     <td
@@ -1002,7 +1043,7 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+                    {matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
@@ -1023,12 +1064,12 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                    {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                    {(matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
@@ -1042,7 +1083,7 @@ const PerformanceMatrix = () => {
                     {(
                       matrixData.filter(d => [29, 22, 15].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
+                      matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 1.0
                     ).toFixed(1)}
                   </td>
@@ -1110,7 +1151,10 @@ const PerformanceMatrix = () => {
           </div>
         </div>
       </div>
-    </div>
+      {/* Unified Student Scores Table */}
+      <UnifiedStudentScoresTable />
+
+    </div >
   );
 };
 

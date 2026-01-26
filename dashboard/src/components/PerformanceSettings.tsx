@@ -163,16 +163,11 @@ export default function PerformanceSettings() {
             </div>
 
             {/* Threshold Sections */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
                 <div>
-                    <h2 className="text-xl font-bold mb-4 px-2">Math Thresholds</h2>
+                    <h2 className="text-xl font-bold mb-4 px-2">Performance Thresholds</h2>
                     {renderThresholdInputs('math', 'previous', 'Previous Performance (Y-Axis)')}
                     {renderThresholdInputs('math', 'current', 'Current Benchmark (X-Axis)')}
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold mb-4 px-2">RLA Thresholds</h2>
-                    {renderThresholdInputs('rla', 'previous', 'Previous Performance (Y-Axis)')}
-                    {renderThresholdInputs('rla', 'current', 'Current Benchmark (X-Axis)')}
                 </div>
             </div>
 

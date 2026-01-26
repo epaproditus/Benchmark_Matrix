@@ -136,9 +136,11 @@ const tools = [
                 });
 
                 if (response.ok) {
-                    // Reload page to reflect changes since matrix logic is server-side/complex
-                    window.location.reload();
-                    return { success: true, message: "Configuration updated successfully. Reloading..." };
+                    // Trigger a refresh event instead of a hard reload
+                    window.dispatchEvent(new CustomEvent('tambo-action', {
+                        detail: { action: 'refresh' }
+                    }));
+                    return { success: true, message: "Configuration updated successfully. Dashboard refreshing..." };
                 } else {
                     return { success: false, message: "Failed to save configuration" };
                 }
@@ -215,6 +217,162 @@ const tools = [
         inputSchema: z.object({
             path: z.string().describe("The path to navigate to (e.g., '/', '/missing')"),
         }),
+        outputSchema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+        }),
+    }),
+    defineTool({
+        name: "importPreviousPerformance",
+        description: "Import 'Previous Performance' scores for a list of students. Use this when the user pastes data like '[ID] [First Name] [Last Name] [Score]' or just '[ID] [Score]'. This writes to a dedicated table.",
+        tool: async ({ students }) => {
+            try {
+                const response = await fetch('/api/bulk-import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'previous_performance',
+                        students
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('tambo-action', {
+                        detail: { action: 'refresh' }
+                    }));
+                    return { success: true, message: data.message };
+                } else {
+                    return { success: false, message: data.message || 'Failed to import scores' };
+                }
+            } catch (error) {
+                return { success: false, message: `Error importing scores: ${error instanceof Error ? error.message : String(error)}` };
+            }
+        },
+        inputSchema: z.object({
+            students: z.array(z.object({
+                localId: z.string().describe("Local ID of student"),
+                firstName: z.string().optional().describe("First Name"),
+                lastName: z.string().optional().describe("Last Name"),
+                score: z.number().describe("The previous performance score (0-100)"),
+                subject: z.enum(['math', 'rla']).optional().describe("Subject if known"),
+            }))
+        }),
+        outputSchema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+        }),
+    }),
+    defineTool({
+        name: "importFallPerformance",
+        description: "Import 'Fall' scores for a list of students. Use this when the user pastes data like '[ID] [First Name] [Last Name] [Score]' or just '[ID] [Score]' and mentions 'Fall'. This writes to a dedicated table.",
+        tool: async ({ students }) => {
+            try {
+                const response = await fetch('/api/bulk-import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'fall_performance',
+                        students
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('tambo-action', {
+                        detail: { action: 'refresh' }
+                    }));
+                    return { success: true, message: data.message };
+                } else {
+                    return { success: false, message: data.message || 'Failed to import scores' };
+                }
+            } catch (error) {
+                return { success: false, message: `Error importing scores: ${error instanceof Error ? error.message : String(error)}` };
+            }
+        },
+        inputSchema: z.object({
+            students: z.array(z.object({
+                localId: z.string().describe("Local ID of student"),
+                firstName: z.string().optional().describe("First Name"),
+                lastName: z.string().optional().describe("Last Name"),
+                score: z.number().describe("The fall performance score (0-100)"),
+                subject: z.enum(['math', 'rla']).optional().describe("Subject if known"),
+            }))
+        }),
+        outputSchema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+        }),
+    }),
+    defineTool({
+        name: "bulkImportStudents",
+        description: "Import or update multiple student records at once. IMPORTANT: You must parse the user's data into an array of OBJECTS matching the schema. DO NOT send comma-separated strings. Missing fields should be omitted or set to null.",
+        tool: async ({ subject, students }) => {
+            try {
+                const response = await fetch('/api/bulk-import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, students })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('tambo-action', {
+                        detail: { action: 'refresh' }
+                    }));
+                    return { success: true, message: data.message };
+                } else {
+                    return { success: false, message: data.message || 'Failed to bulk import students' };
+                }
+            } catch (error) {
+                return { success: false, message: `Error importing students: ${error instanceof Error ? error.message : String(error)}` };
+            }
+        },
+        inputSchema: z.object({
+            subject: z.enum(['math', 'rla']).describe("The subject of the data being imported"),
+            students: z.array(z.object({
+                localId: z.string().describe("Local ID of student"),
+                firstName: z.string().optional(),
+                lastName: z.string().optional(),
+                grade: z.string().optional(),
+                campus: z.string().optional(),
+                teacher: z.string().optional(),
+                staarScore: z.number().optional().describe("Previous performance score (0-100)"),
+                benchmarkScore: z.number().optional().describe("Current benchmark score (0-100)")
+            }))
+        }),
+        outputSchema: z.object({
+            success: z.boolean(),
+            message: z.string(),
+        }),
+    }),
+    defineTool({
+        name: "clearStudentData",
+        description: "Wipe all placeholder student data from the dashboard to prepare for real data import. WARNING: This action is destructive and will remove all student scores and details.",
+        tool: async () => {
+            try {
+                const response = await fetch('/api/clear-data', {
+                    method: 'POST',
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('tambo-action', {
+                        detail: { action: 'refresh' }
+                    }));
+                    return { success: true, message: data.message };
+                } else {
+                    return { success: false, message: data.message || 'Failed to clear data' };
+                }
+            } catch (error) {
+                return { success: false, message: `Error clearing data: ${error instanceof Error ? error.message : String(error)}` };
+            }
+        },
+        inputSchema: z.object({}),
         outputSchema: z.object({
             success: z.boolean(),
             message: z.string(),
