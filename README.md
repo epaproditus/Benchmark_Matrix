@@ -1,42 +1,74 @@
 # School Progress: Academic Growth Dashboard
 
-## Description
-The project creates a Node.js matrix dashboard that allows for visualizing the data from STAAR scores and benchmark scores and is linked to a MySQL database.
+An interactive, high-performance dashboard for visualizing student academic growth using a TEA-style Performance Matrix. Designed for educators to track student progress across multiple assessment cycles (Previous STAAR, Fall Benchmark, Spring Benchmark).
 
-![An example of a Matrix taken from TEA 2024 Accounatability Manual ](matrix.png)
+![Academic Growth Matrix](matrix.png)
 
-## Features
-- Interactive performance matrix visualization
-- Data filtering and sorting capabilities
-- User-friendly interface
-- Responsive design for mobile and desktop
-- API integration for real-time data updates
+## 🚀 Features
 
-## Installation
-To get started with the School Progress Dashboard, follow these steps:
+- **Performance Matrix**: Interactive 2D visualization of student growth based on configurable thresholds.
+- **Unified Student Scores Table**: A central, interactive table featuring:
+  - **3-Cycle Score View**: Simultaneous display of Previous STAAR, Fall, and Spring benchmark scores.
+  - **Performance Labels**: Color-coded labels (Masters, Meets, Approaches, Does Not Meet) for instant assessment.
+  - **Dynamic Interactivity**: Instant sorting, name-based filtering, and record deletion.
+- **Dynamic Assessment Toggle**: Sleek UI to switch the dashboard view between Fall and Spring assessment cycles.
+- **Configurable Thresholds**: Live settings panel to adjust performance cutoffs and axis labels without code changes.
+- **Dark Mode Optimized**: Premium aesthetic with high-contrast visualization and glassmorphism elements.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/school-progress-dashboard.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd school-progress-dashboard
-   ```
-3. Install the dependencies:
-   ```bash
-   npm install
-   ```
+## 🛠️ Project Structure
 
-## Usage
-To run the application locally, use the following command:
+```text
+├── dashboard/              # Next.js Frontend & API
+│   ├── src/
+│   │   ├── app/            # App Router & API Routes
+│   │   ├── components/     # React Components (Matrix, Unified Table, etc.)
+│   │   ├── lib/            # Shared Utilities (DB Connections)
+│   │   └── data/           # Config JSONs (Thresholds)
+├── docs/                   # Additional Documentation
+└── setup_db.sql            # Database Initialization Script
+```
+
+## ⚙️ Installation
+
+### 1. Database Setup
+
+Ensure you have MySQL installed and running. Execute the setup script:
+
 ```bash
+mysql -u your_user -p < setup_db.sql
+```
+
+### 2. Frontend Configuration
+
+Navigate to the dashboard directory and install dependencies:
+
+```bash
+cd dashboard
+npm install
+```
+
+### 3. Environment Variables
+
+Create a `.env.local` file in the `dashboard/` directory with your database credentials:
+
+```env
+DB_HOST=127.0.0.1
+DB_USER=your_user
+DB_PASSWORD=your_password
+DB_NAME=benchmark_matrix
+```
+
+## 🚀 Usage
+
+To start the development server:
+
+```bash
+cd dashboard
 npm run dev
 ```
-Open your browser and navigate to `http://localhost:3000` to view the dashboard.
 
-## Contributing
-Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
+The dashboard will be available at [http://localhost:3002](http://localhost:3002).
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for more details.
+## 📝 License
+
+This project is licensed under the MIT License.
