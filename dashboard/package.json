@@ -9,19 +9,41 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@copilotkit/react-core": "^1.51.2",
+    "@copilotkit/react-ui": "^1.51.2",
+    "@copilotkit/runtime": "^1.51.2",
+    "@langchain/core": "^1.1.17",
+    "@langchain/openai": "^1.2.3",
+    "@tambo-ai/react": "^0.69.1",
+    "@tambo-ai/typescript-sdk": "^0.84.0",
+    "@valibot/to-json-schema": "^1.5.0",
+    "class-variance-authority": "^0.7.1",
+    "dompurify": "^3.3.1",
+    "effect": "^3.19.15",
+    "groq-sdk": "^0.37.0",
+    "highlight.js": "^11.11.1",
+    "json-stringify-pretty-compact": "^4.0.0",
+    "lucide-react": "^0.563.0",
     "mysql2": "^3.12.0",
     "next": "15.1.2",
+    "openai": "^6.16.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "sury": "^10.0.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.23",
+    "clsx": "^2.1.1",
     "eslint": "^9",
     "eslint-config-next": "15.1.2",
     "postcss": "^8",
+    "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

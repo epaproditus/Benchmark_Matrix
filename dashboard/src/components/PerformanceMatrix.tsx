@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useTamboContextHelpers } from '@tambo-ai/react';
 
 interface Student {
   id: number;
   local_id: string;
-  Teacher: string; 
+  Teacher: string;
   'First Name': string;
   'Last Name': string;
   Grade: string;
@@ -93,12 +94,30 @@ interface TeacherData {
   grade: string;
 }
 
+interface Threshold {
+  label: string;
+  min: number;
+  max: number;
+  color?: string;
+}
+
+interface Config {
+  labels: {
+    xAxis: string;
+    yAxis: string;
+  };
+  thresholds: {
+    math: Threshold[];
+    rla: Threshold[];
+  };
+}
+
 const PerformanceMatrix = () => {
   const [matrixData, setMatrixData] = useState<CellData[]>([]);
-  const [staarTotals, setStaarTotals] = useState<{[key: string]: number}>({});
+  const [staarTotals, setStaarTotals] = useState<{ [key: string]: number }>({});
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
-  const [studentAssessments, setStudentAssessments] = useState<{[key: string]: Assessment[]}>({});
+  const [studentAssessments, setStudentAssessments] = useState<{ [key: string]: Assessment[] }>({});
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showAssessments, setShowAssessments] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
@@ -109,14 +128,61 @@ const PerformanceMatrix = () => {
   const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring-algebra');
   const [hasTeacherData, setHasTeacherData] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('campus');
-
-  // Add new state for available grades
   const [availableGrades, setAvailableGrades] = useState<{
     grades: string[];
     hasData: { [key: string]: boolean };
   }>({ grades: [], hasData: {} });
 
-  const performanceLevels = [
+  const { addContextHelper, removeContextHelper } = useTamboContextHelpers();
+
+  useEffect(() => {
+    const handleAction = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.component === 'PerformanceMatrix') {
+        const config = customEvent.detail.config;
+        if (config.subject) setSelectedSubject(config.subject);
+        if (config.version) setSelectedVersion(config.version);
+        if (config.grade) {
+          setSelectedGrade(config.grade === 'all' ? null : config.grade);
+          setSelectedTeacher(null);
+        }
+        if (config.teacher) setSelectedTeacher(config.teacher === 'all' ? null : config.teacher);
+      }
+    };
+    window.addEventListener('tambo-action', handleAction);
+    return () => window.removeEventListener('tambo-action', handleAction);
+  }, []);
+
+  useEffect(() => {
+    addContextHelper("dashboardFilters", () => ({
+      key: "dashboard-filters",
+      value: JSON.stringify({
+        subject: selectedSubject,
+        version: selectedVersion,
+        grade: selectedGrade || 'all',
+        teacher: selectedTeacher || 'all'
+      })
+    }));
+    return () => removeContextHelper("dashboardFilters");
+  }, [selectedSubject, selectedVersion, selectedGrade, selectedTeacher, addContextHelper, removeContextHelper]);
+
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const [config, setConfig] = useState<Config | null>(null);
+
+  // Fetch config on mount
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => setConfig(data))
+      .catch(err => console.error('Error fetching config:', err));
+  }, []);
+
+  const performanceLevels = config?.thresholds?.[selectedSubject === 'rla' ? 'rla' : 'math']?.map((t: Threshold) => t.label) || [
     'Did Not Meet Low',
     'Did Not Meet High',
     'Approaches Low',
@@ -124,6 +190,9 @@ const PerformanceMatrix = () => {
     'Meets',
     'Masters'
   ];
+
+  const xAxisLabel = config?.labels?.xAxis || 'Current Benchmark';
+  const yAxisLabel = config?.labels?.yAxis || 'Previous Performance';
 
   const fetchData = useCallback(async () => {
     try {
@@ -140,15 +209,16 @@ const PerformanceMatrix = () => {
 
       const response = await fetch(url);
       const data = await response.json();
-      
-      setMatrixData(data.matrixData || []);
-      setStaarTotals((data.staarTotals || []).reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
-        if (curr && curr.level) {  // Added null check for curr object
-          acc[curr.level] = curr.total || 0;  // Added default of 0 for total
+
+      setMatrixData(Array.isArray(data.matrixData) ? data.matrixData : []);
+      const rawStaarTotals = Array.isArray(data.staarTotals) ? data.staarTotals : [];
+      setStaarTotals(rawStaarTotals.reduce((acc: { [key: string]: number }, curr: { level: string; total: number }) => {
+        if (curr && curr.level) {
+          acc[curr.level] = curr.total || 0;
         }
         return acc;
       }, {}));
-      
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -164,13 +234,13 @@ const PerformanceMatrix = () => {
       }
       url.searchParams.append('version', selectedVersion);
       url.searchParams.append('subject', selectedSubject); // Add subject parameter
-      
+
       const response = await fetch(url);
       const data = await response.json();
-      
-      setTeachers(data.teachers);
-      setHasTeacherData(data.gradeHasData);
-      
+
+      setTeachers(Array.isArray(data.teachers) ? data.teachers : []);
+      setHasTeacherData(!!data.gradeHasData);
+
       // Reset teacher selection if no data available
       if (!data.gradeHasData) {
         setSelectedTeacher(null);
@@ -185,7 +255,10 @@ const PerformanceMatrix = () => {
     try {
       const response = await fetch(`/api/grades?version=${selectedVersion}`);
       const data = await response.json();
-      setAvailableGrades(data);
+      setAvailableGrades({
+        grades: Array.isArray(data?.grades) ? data.grades : [],
+        hasData: data?.hasData || {}
+      });
     } catch (error) {
       console.error('Error fetching grades:', error);
     }
@@ -231,7 +304,7 @@ const PerformanceMatrix = () => {
       const assessmentData = await assessmentResponse.json();
       setStudentAssessments(prev => ({
         ...prev,
-        [localId]: assessmentData.assessments
+        [localId]: assessmentData.assessments || []
       }));
       setSelectedStudentId(localId);
     } catch (error) {
@@ -265,10 +338,10 @@ const PerformanceMatrix = () => {
       });
       const data = await response.json();
       console.log('Received student data:', data.students);
-      setSelectedStudents(data.students);
-      
+      setSelectedStudents(data.students || []);
+
       // Fetch assessments for each student
-      const assessments: {[key: string]: Assessment[]} = {};
+      const assessments: { [key: string]: Assessment[] } = {};
       for (const student of data.students) {
         if (student.local_id) {
           await fetchStudentAssessments(student.local_id);
@@ -281,15 +354,15 @@ const PerformanceMatrix = () => {
   };
 
   const getCellData = (staarLevel: string, benchmarkLevel: string) => {
-    return matrixData.find(d => 
-      d.staar_level === staarLevel && 
+    return matrixData.find(d =>
+      d.staar_level === staarLevel &&
       d.benchmark_level === benchmarkLevel
     ) || { staar_level: staarLevel, benchmark_level: benchmarkLevel, student_count: 0, group_number: 0 };
   };
 
   const getCellColor = (groupNumber: number, value: number): string => {
     if (value === 0) return 'bg-white';
-    
+
     if (selectedSubject === 'rla') {
       // Red cells - No Growth
       if ([2, 3, 4, 5, 6, 9, 10, 11, 12, 16, 17, 18, 23, 24, 30, 36].includes(groupNumber)) {
@@ -348,39 +421,41 @@ const PerformanceMatrix = () => {
         // Base points (1.0) - standard growth categories
         base: matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 31, 32, 33, 34, 35].includes(d.group_number))
           .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
-          
+
         // Half points (0.5) - moderate growth categories
         half: matrixData.filter(d => [15, 22, 29].includes(d.group_number))
           .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
-          
+
         // Quarter points (0.25) - DNM students showing growth
-        quarter: matrixData.filter(d => 
+        quarter: matrixData.filter(d =>
           [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
           ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
         ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
       };
-      
+
       return pointsMap.base + pointsMap.half + pointsMap.quarter;
     } else {
       const pointsMap = {
         // Base points (1.0) - standard growth categories
         base: matrixData.filter(d => [35, 34, 33, 32, 31, 28, 27, 26, 25, 21, 20, 19, 14, 13, 8, 7, 1].includes(d.group_number))
           .reduce((sum, d) => sum + d.student_count, 0) * 1.0,
-          
+
         // Half points (0.5) - moderate growth categories
         half: matrixData.filter(d => [29, 22, 15].includes(d.group_number))
           .reduce((sum, d) => sum + d.student_count, 0) * 0.5,
-          
+
         // Quarter points (0.25) - DNM students showing some growth
-        quarter: matrixData.filter(d => 
+        quarter: matrixData.filter(d =>
           [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
           ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
         ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
       };
-      
+
       return pointsMap.base + pointsMap.half + pointsMap.quarter;
     }
   };
+
+  if (!isMounted) return null;
 
   if (loading) {
     return <div>Loading...</div>;
@@ -501,7 +576,7 @@ const PerformanceMatrix = () => {
                 setSearchResults([]);
                 return;
               }
-              
+
               try {
                 const response = await fetch('/api/matrix', {
                   method: 'POST',
@@ -517,7 +592,7 @@ const PerformanceMatrix = () => {
                   }),
                 });
                 const data = await response.json();
-                setSearchResults(data.students || []);
+                setSearchResults(Array.isArray(data.students) ? data.students : []);
               } catch (error) {
                 console.error('Error searching students:', error);
               }
@@ -525,7 +600,7 @@ const PerformanceMatrix = () => {
             className="bg-black text-white border border-white rounded px-2 py-1"
           />
         </div>
-        
+
         {/* Display filtered student as a line */}
         {searchResults.length > 0 && (
           <div className="bg-black text-white p-4 rounded border border-gray-700">
@@ -533,17 +608,17 @@ const PerformanceMatrix = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {searchResults.map((student, index) => {
                 // Get the math color class
-                const mathColorClass = student.group_number ? 
-                  getCellColor(student.group_number, 1) : 
+                const mathColorClass = student.group_number ?
+                  getCellColor(student.group_number, 1) :
                   'bg-gray-900';
 
                 // Get the RLA color class
-                const rlaColorClass = student.rla_group_number ? 
-                  getCellColor(student.rla_group_number, 1) : 
+                const rlaColorClass = student.rla_group_number ?
+                  getCellColor(student.rla_group_number, 1) :
                   'bg-gray-900';
 
                 return (
-                  <div key={index} 
+                  <div key={index}
                     className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
                   >
                     <div className="mb-2">
@@ -600,7 +675,7 @@ const PerformanceMatrix = () => {
           </div>
         )}
       </div>
-      
+
       {/* New Section for Total Points Calculation */}
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">Overall Points Calculation</h2>
@@ -635,7 +710,7 @@ const PerformanceMatrix = () => {
         {selectedCell && selectedStudents.length > 0 && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-black text-white p-6 rounded-lg max-w-6xl w-full max-h-[80vh] overflow-y-auto relative">
-              <button 
+              <button
                 onClick={() => {
                   setSelectedCell(null);
                   setSelectedStudents([]);
@@ -649,16 +724,16 @@ const PerformanceMatrix = () => {
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {selectedStudents.map((student, index) => {
-                  const mathColorClass = selectedCell.group_number ? 
-                    getCellColor(selectedCell.group_number, 1) : 
+                  const mathColorClass = selectedCell.group_number ?
+                    getCellColor(selectedCell.group_number, 1) :
                     'bg-gray-900';
 
-                  const rlaColorClass = student.rla_group_number ? 
-                    getCellColor(student.rla_group_number, 1) : 
+                  const rlaColorClass = student.rla_group_number ?
+                    getCellColor(student.rla_group_number, 1) :
                     'bg-gray-900';
 
                   return (
-                    <div key={index} 
+                    <div key={index}
                       className="p-2 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900 text-sm"
                     >
                       <div className="font-bold border-b border-gray-700 pb-1 mb-1">
@@ -695,7 +770,7 @@ const PerformanceMatrix = () => {
         {showAssessments && selectedStudentId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-black text-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto relative">
-              <button 
+              <button
                 onClick={() => setShowAssessments(false)}
                 className="absolute top-4 right-4 text-white hover:text-gray-300"
               >
@@ -761,10 +836,10 @@ const PerformanceMatrix = () => {
           <thead>
             <tr>
               <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
-                2024 STAAR
+                {yAxisLabel}
               </th>
               <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={7}>
-                Spring Benchmark
+                {xAxisLabel}
               </th>
             </tr>
             <tr>
@@ -782,7 +857,7 @@ const PerformanceMatrix = () => {
                 const cellData = getCellData(staarLevel, benchmarkLevel);
                 return sum + cellData.student_count;
               }, 0);
-              
+
               return (
                 <tr key={rowIndex}>
                   <td className="border p-2 font-medium min-w-[150px]">
@@ -844,10 +919,10 @@ const PerformanceMatrix = () => {
           <thead>
             <tr>
               <th className="border p-2 bg-green-500 text-white" rowSpan={2}>
-                2024 STAAR
+                {yAxisLabel}
               </th>
               <th className="border p-2 bg-orange-300 text-center font-bold" colSpan={6}>
-                Spring Benchmark
+                {xAxisLabel}
               </th>
             </tr>
             <tr>
@@ -974,7 +1049,7 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => 
+                    {matrixData.filter(d =>
                       [36, 35, 30, 29].includes(d.group_number) &&
                       ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
@@ -985,13 +1060,13 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.25 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => 
+                    {matrixData.filter(d =>
                       [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => 
+                    {(matrixData.filter(d =>
                       [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
                     ).reduce((sum, d) => sum + d.student_count, 0) * 0.25).toFixed(1)}
                   </td>
@@ -999,14 +1074,14 @@ const PerformanceMatrix = () => {
                 <tr className="font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => 
+                    {matrixData.filter(d =>
                       ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
                     ).reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
                     {(
-                      matrixData.filter(d => 
+                      matrixData.filter(d =>
                         [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
                         ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
                       ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
