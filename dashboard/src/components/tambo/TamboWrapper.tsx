@@ -107,10 +107,18 @@ const tools = [
 
                 // Update thresholds if provided
                 if (newConfig.thresholds) {
-                    updatedConfig.thresholds = {
-                        ...updatedConfig.thresholds,
-                        ...newConfig.thresholds
-                    };
+                    if (newConfig.thresholds.math) {
+                        updatedConfig.thresholds.math = {
+                            ...updatedConfig.thresholds.math,
+                            ...newConfig.thresholds.math
+                        };
+                    }
+                    if (newConfig.thresholds.rla) {
+                        updatedConfig.thresholds.rla = {
+                            ...updatedConfig.thresholds.rla,
+                            ...newConfig.thresholds.rla
+                        };
+                    }
                 }
 
                 // Update labels if provided
@@ -140,18 +148,34 @@ const tools = [
         },
         inputSchema: z.object({
             thresholds: z.object({
-                math: z.array(z.object({
-                    label: z.string(),
-                    min: z.number(),
-                    max: z.number(),
-                    color: z.string().optional()
-                })).optional(),
-                rla: z.array(z.object({
-                    label: z.string(),
-                    min: z.number(),
-                    max: z.number(),
-                    color: z.string().optional()
-                })).optional(),
+                math: z.object({
+                    previous: z.array(z.object({
+                        label: z.string(),
+                        min: z.number(),
+                        max: z.number(),
+                        color: z.string().optional()
+                    })).optional(),
+                    current: z.array(z.object({
+                        label: z.string(),
+                        min: z.number(),
+                        max: z.number(),
+                        color: z.string().optional()
+                    })).optional()
+                }).optional(),
+                rla: z.object({
+                    previous: z.array(z.object({
+                        label: z.string(),
+                        min: z.number(),
+                        max: z.number(),
+                        color: z.string().optional()
+                    })).optional(),
+                    current: z.array(z.object({
+                        label: z.string(),
+                        min: z.number(),
+                        max: z.number(),
+                        color: z.string().optional()
+                    })).optional()
+                }).optional(),
             }).optional(),
             labels: z.object({
                 xAxis: z.string().optional(),

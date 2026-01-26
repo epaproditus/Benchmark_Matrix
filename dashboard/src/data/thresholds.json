@@ -1,0 +1,164 @@
+{
+    "labels": {
+        "yAxis": "Previous Performance",
+        "xAxis": "Current Benchmark"
+    },
+    "thresholds": {
+        "math": {
+            "previous": [
+                {
+                    "label": "Did Not Meet Low",
+                    "min": 0,
+                    "max": 30,
+                    "color": "#ef4444"
+                },
+                {
+                    "label": "Did Not Meet High",
+                    "min": 31,
+                    "max": 49,
+                    "color": "#f87171"
+                },
+                {
+                    "label": "Approaches Low",
+                    "min": 50,
+                    "max": 64,
+                    "color": "#fb923c"
+                },
+                {
+                    "label": "Approaches High",
+                    "min": 65,
+                    "max": 74,
+                    "color": "#fbbf24"
+                },
+                {
+                    "label": "Meets",
+                    "min": 75,
+                    "max": 89,
+                    "color": "#34d399"
+                },
+                {
+                    "label": "Masters",
+                    "min": 90,
+                    "max": 100,
+                    "color": "#10b981"
+                }
+            ],
+            "current": [
+                {
+                    "label": "Did Not Meet Low",
+                    "min": 0,
+                    "max": 30,
+                    "color": "#ef4444"
+                },
+                {
+                    "label": "Did Not Meet High",
+                    "min": 31,
+                    "max": 49,
+                    "color": "#f87171"
+                },
+                {
+                    "label": "Approaches Low",
+                    "min": 50,
+                    "max": 64,
+                    "color": "#fb923c"
+                },
+                {
+                    "label": "Approaches High",
+                    "min": 65,
+                    "max": 74,
+                    "color": "#fbbf24"
+                },
+                {
+                    "label": "Meets",
+                    "min": 75,
+                    "max": 89,
+                    "color": "#34d399"
+                },
+                {
+                    "label": "Masters",
+                    "min": 90,
+                    "max": 100,
+                    "color": "#10b981"
+                }
+            ]
+        },
+        "rla": {
+            "previous": [
+                {
+                    "label": "Did Not Meet Low",
+                    "min": 0,
+                    "max": 30,
+                    "color": "#ef4444"
+                },
+                {
+                    "label": "Did Not Meet High",
+                    "min": 31,
+                    "max": 49,
+                    "color": "#f87171"
+                },
+                {
+                    "label": "Approaches Low",
+                    "min": 50,
+                    "max": 64,
+                    "color": "#fb923c"
+                },
+                {
+                    "label": "Approaches High",
+                    "min": 65,
+                    "max": 74,
+                    "color": "#fbbf24"
+                },
+                {
+                    "label": "Meets",
+                    "min": 75,
+                    "max": 89,
+                    "color": "#34d399"
+                },
+                {
+                    "label": "Masters",
+                    "min": 90,
+                    "max": 100,
+                    "color": "#10b981"
+                }
+            ],
+            "current": [
+                {
+                    "label": "Did Not Meet Low",
+                    "min": 0,
+                    "max": 30,
+                    "color": "#ef4444"
+                },
+                {
+                    "label": "Did Not Meet High",
+                    "min": 31,
+                    "max": 49,
+                    "color": "#f87171"
+                },
+                {
+                    "label": "Approaches Low",
+                    "min": 50,
+                    "max": 64,
+                    "color": "#fb923c"
+                },
+                {
+                    "label": "Approaches High",
+                    "min": 65,
+                    "max": 74,
+                    "color": "#fbbf24"
+                },
+                {
+                    "label": "Meets",
+                    "min": 75,
+                    "max": 89,
+                    "color": "#34d399"
+                },
+                {
+                    "label": "Masters",
+                    "min": 90,
+                    "max": 100,
+                    "color": "#10b981"
+                }
+            ]
+        }
+    }
+}

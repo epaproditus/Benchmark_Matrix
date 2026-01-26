@@ -14,8 +14,14 @@ interface Config {
         yAxis: string;
     };
     thresholds: {
-        math: Threshold[];
-        rla: Threshold[];
+        math: {
+            previous: Threshold[];
+            current: Threshold[];
+        };
+        rla: {
+            previous: Threshold[];
+            current: Threshold[];
+        };
     };
 }
 
@@ -56,8 +62,8 @@ export default function PerformanceSettings() {
         }
     };
 
-    if (loading) return <div className="text-white p-8">Loading settings...</div>;
-    if (!config) return <div className="text-red-500 p-8">Failed to load configuration.</div>;
+    if (loading) return <div className="text-white p-8">Loading settings text-sm...</div>;
+    if (!config) return <div className="text-red-500 p-8 text-sm">Failed to load configuration.</div>;
 
     const updateLabel = (axis: 'xAxis' | 'yAxis', value: string) => {
         setConfig(prev => prev ? ({
@@ -66,21 +72,27 @@ export default function PerformanceSettings() {
         }) : null);
     };
 
-    const updateThreshold = (subject: 'math' | 'rla', index: number, field: keyof Threshold, value: string | number) => {
+    const updateThreshold = (subject: 'math' | 'rla', type: 'previous' | 'current', index: number, field: keyof Threshold, value: string | number) => {
         setConfig(prev => {
             if (!prev) return null;
-            const newThresholds = [...prev.thresholds[subject]];
+            const newThresholds = [...prev.thresholds[subject][type]];
             newThresholds[index] = { ...newThresholds[index], [field]: value };
             return {
                 ...prev,
-                thresholds: { ...prev.thresholds, [subject]: newThresholds }
+                thresholds: {
+                    ...prev.thresholds,
+                    [subject]: {
+                        ...prev.thresholds[subject],
+                        [type]: newThresholds
+                    }
+                }
             };
         });
     };
 
-    const renderThresholdInputs = (subject: 'math' | 'rla', title: string) => (
-        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 mb-6">
-            <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">{title} Thresholds</h3>
+    const renderThresholdInputs = (subject: 'math' | 'rla', type: 'previous' | 'current', title: string) => (
+        <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 mb-6">
+            <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{title}</h3>
             <div className="grid gap-4">
                 <div className="grid grid-cols-12 gap-2 text-sm text-gray-400 font-mono uppercase tracking-wider mb-2">
                     <div className="col-span-5">Label</div>
@@ -88,29 +100,29 @@ export default function PerformanceSettings() {
                     <div className="col-span-3">Max Score</div>
                     <div className="col-span-1">Color</div>
                 </div>
-                {config.thresholds[subject].map((t, i) => (
+                {config.thresholds[subject][type].map((t, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-5">
                             <input
-                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-blue-500 outline-none"
+                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-white outline-none text-sm"
                                 value={t.label}
-                                onChange={(e) => updateThreshold(subject, i, 'label', e.target.value)}
+                                onChange={(e) => updateThreshold(subject, type, i, 'label', e.target.value)}
                             />
                         </div>
                         <div className="col-span-3">
                             <input
                                 type="number"
-                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-blue-500 outline-none"
+                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-white outline-none text-sm"
                                 value={t.min}
-                                onChange={(e) => updateThreshold(subject, i, 'min', parseInt(e.target.value))}
+                                onChange={(e) => updateThreshold(subject, type, i, 'min', parseInt(e.target.value))}
                             />
                         </div>
                         <div className="col-span-3">
                             <input
                                 type="number"
-                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-blue-500 outline-none"
+                                className="w-full bg-black text-white px-3 py-2 rounded border border-gray-700 focus:border-white outline-none text-sm"
                                 value={t.max}
-                                onChange={(e) => updateThreshold(subject, i, 'max', parseInt(e.target.value))}
+                                onChange={(e) => updateThreshold(subject, type, i, 'max', parseInt(e.target.value))}
                             />
                         </div>
                         <div className="col-span-1 flex justify-center">
@@ -151,8 +163,18 @@ export default function PerformanceSettings() {
             </div>
 
             {/* Threshold Sections */}
-            {renderThresholdInputs('math', 'Mathematics')}
-            {renderThresholdInputs('rla', 'Reading Language Arts')}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div>
+                    <h2 className="text-xl font-bold mb-4 px-2">Math Thresholds</h2>
+                    {renderThresholdInputs('math', 'previous', 'Previous Performance (Y-Axis)')}
+                    {renderThresholdInputs('math', 'current', 'Current Benchmark (X-Axis)')}
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold mb-4 px-2">RLA Thresholds</h2>
+                    {renderThresholdInputs('rla', 'previous', 'Previous Performance (Y-Axis)')}
+                    {renderThresholdInputs('rla', 'current', 'Current Benchmark (X-Axis)')}
+                </div>
+            </div>
 
             {/* Action Bar */}
             <div className="flex items-center justify-end gap-3 sticky bottom-6 bg-black/80 backdrop-blur p-4 rounded-xl border border-gray-800 shadow-2xl">

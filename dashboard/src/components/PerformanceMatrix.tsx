@@ -107,8 +107,14 @@ interface Config {
     yAxis: string;
   };
   thresholds: {
-    math: Threshold[];
-    rla: Threshold[];
+    math: {
+      previous: Threshold[];
+      current: Threshold[];
+    };
+    rla: {
+      previous: Threshold[];
+      current: Threshold[];
+    };
   };
 }
 
@@ -182,7 +188,18 @@ const PerformanceMatrix = () => {
       .catch(err => console.error('Error fetching config:', err));
   }, []);
 
-  const performanceLevels = config?.thresholds?.[selectedSubject === 'rla' ? 'rla' : 'math']?.map((t: Threshold) => t.label) || [
+  const subjectConfig = config?.thresholds?.[selectedSubject === 'rla' ? 'rla' : 'math'];
+
+  const previousLevels = subjectConfig?.previous?.map((t: Threshold) => t.label) || [
+    'Did Not Meet Low',
+    'Did Not Meet High',
+    'Approaches Low',
+    'Approaches High',
+    'Meets',
+    'Masters'
+  ];
+
+  const currentLevels = subjectConfig?.current?.map((t: Threshold) => t.label) || [
     'Did Not Meet Low',
     'Did Not Meet High',
     'Approaches Low',
@@ -405,8 +422,8 @@ const PerformanceMatrix = () => {
   // Ensure we use the same total everywhere
   const calculateGrandTotal = () => {
     let total = 0;
-    performanceLevels.forEach(staarLevel => {
-      performanceLevels.forEach(benchmarkLevel => {
+    previousLevels.forEach(staarLevel => {
+      currentLevels.forEach(benchmarkLevel => {
         const cellData = getCellData(staarLevel, benchmarkLevel);
         total += cellData.student_count;
       });
@@ -843,7 +860,7 @@ const PerformanceMatrix = () => {
               </th>
             </tr>
             <tr>
-              {performanceLevels.map((level, index) => (
+              {currentLevels.map((level, index) => (
                 <th key={index} className="border p-2 text-sm min-w-[100px]">
                   {level}
                 </th>
@@ -852,8 +869,8 @@ const PerformanceMatrix = () => {
             </tr>
           </thead>
           <tbody>
-            {performanceLevels.map((staarLevel, rowIndex) => {
-              const rowTotal = performanceLevels.reduce((sum, benchmarkLevel) => {
+            {previousLevels.map((staarLevel, rowIndex) => {
+              const rowTotal = currentLevels.reduce((sum, benchmarkLevel) => {
                 const cellData = getCellData(staarLevel, benchmarkLevel);
                 return sum + cellData.student_count;
               }, 0);
@@ -866,7 +883,7 @@ const PerformanceMatrix = () => {
                       {staarTotals[staarLevel] || 0}
                     </div>
                   </td>
-                  {performanceLevels.map((benchmarkLevel, colIndex) => {
+                  {currentLevels.map((benchmarkLevel, colIndex) => {
                     const cellData = getCellData(staarLevel, benchmarkLevel);
                     return (
                       <td
@@ -894,9 +911,9 @@ const PerformanceMatrix = () => {
           <tfoot>
             <tr className="font-bold">
               <td className="border p-2 bg-black text-white">Column Total</td>
-              {performanceLevels.map((_, colIndex) => {
-                const colTotal = performanceLevels.reduce((sum, staarLevel) => {
-                  const cellData = getCellData(staarLevel, performanceLevels[colIndex]);
+              {currentLevels.map((_, colIndex) => {
+                const colTotal = previousLevels.reduce((sum, staarLevel) => {
+                  const cellData = getCellData(staarLevel, currentLevels[colIndex]);
                   return sum + cellData.student_count;
                 }, 0);
                 return (
@@ -926,7 +943,7 @@ const PerformanceMatrix = () => {
               </th>
             </tr>
             <tr>
-              {performanceLevels.map((level, index) => (
+              {currentLevels.map((level, index) => (
                 <th key={index} className="border p-2 text-sm min-w-[100px]">
                   {level}
                 </th>
@@ -934,7 +951,7 @@ const PerformanceMatrix = () => {
             </tr>
           </thead>
           <tbody>
-            {performanceLevels.slice(0, 2).map((staarLevel, rowIndex) => (
+            {previousLevels.slice(0, 2).map((staarLevel, rowIndex) => (
               <tr key={rowIndex}>
                 <td className="border p-2 font-medium min-w-[150px]">
                   <div>{staarLevel}</div>
@@ -942,7 +959,7 @@ const PerformanceMatrix = () => {
                     {staarTotals[staarLevel] || 0}
                   </div>
                 </td>
-                {performanceLevels.map((benchmarkLevel, colIndex) => {
+                {currentLevels.map((benchmarkLevel, colIndex) => {
                   const cellData = getCellData(staarLevel, benchmarkLevel);
                   return (
                     <td

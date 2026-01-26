@@ -6,57 +6,59 @@ import path from 'path';
 
 // Load config
 async function getConfig() {
-    const configPath = path.join(process.cwd(), 'src', 'data', 'thresholds.json');
-    try {
-        const data = await fs.readFile(configPath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Failed to load thresholds config', error);
-        return null;
-    }
+  const configPath = path.join(process.cwd(), 'src', 'data', 'thresholds.json');
+  try {
+    const data = await fs.readFile(configPath, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Failed to load thresholds config', error);
+    return null;
+  }
 }
 
 function getLevelSql(column: string, thresholds: { label: string, min: number, max: number }[]) {
-    if (!thresholds || thresholds.length === 0) return `'Unknown'`;
-    let sql = `(CASE `;
-    for (const t of thresholds) {
-        sql += `WHEN ${column} >= ${t.min} AND ${column} <= ${t.max} THEN '${t.label}' `;
-    }
-    sql += `ELSE 'Unknown' END)`;
-    return sql;
+  if (!thresholds || thresholds.length === 0) return `'Unknown'`;
+  let sql = `(CASE `;
+  for (const t of thresholds) {
+    sql += `WHEN ${column} >= ${t.min} AND ${column} <= ${t.max} THEN '${t.label}' `;
+  }
+  sql += `ELSE 'Unknown' END)`;
+  return sql;
 }
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const teacher = searchParams.get('teacher');
-    const grade = searchParams.get('grade');
-    const version = searchParams.get('version') || 'spring';
-    const subject = searchParams.get('subject') || 'math';
+  const { searchParams } = new URL(request.url);
+  const teacher = searchParams.get('teacher');
+  const grade = searchParams.get('grade');
+  const version = searchParams.get('version') || 'spring';
+  const subject = searchParams.get('subject') || 'math';
 
-    const config = await getConfig();
-    const mathThresholds = config?.thresholds?.math || [];
-    const rlaThresholds = config?.thresholds?.rla || [];
+  const config = await getConfig();
+  const mathPreviousThresholds = config?.thresholds?.math?.previous || [];
+  const mathCurrentThresholds = config?.thresholds?.math?.current || [];
+  const rlaPreviousThresholds = config?.thresholds?.rla?.previous || [];
+  const rlaCurrentThresholds = config?.thresholds?.rla?.current || [];
 
-    // Define dynamic columns
-    // Math: 'STAAR MA07 Percent Score' (previous), 'Benchmark PercentScore' (current)
-    // RLA: 'STAAR_Score' (previous), 'Benchmark_Score' (current)
+  // Define dynamic columns
+  // Math: 'STAAR MA07 Percent Score' (previous), 'Benchmark PercentScore' (current)
+  // RLA: 'STAAR_Score' (previous), 'Benchmark_Score' (current)
 
-    // Note: For simplicity in the complex UNION queries, we'll use these specific column names which match the Spring/Math 8 data. 
-    // RLA tables use different names, handled in specific RLA blocks.
+  // Note: For simplicity in the complex UNION queries, we'll use these specific column names which match the Spring/Math 8 data. 
+  // RLA tables use different names, handled in specific RLA blocks.
 
-    const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathThresholds);
-    const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathThresholds);
+  const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathPreviousThresholds);
+  const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathCurrentThresholds);
 
-    const rlaStaarSql = getLevelSql('STAAR_Score', rlaThresholds);
-    const rlaBenchSql = getLevelSql('Benchmark_Score', rlaThresholds);
+  const rlaStaarSql = getLevelSql('STAAR_Score', rlaPreviousThresholds);
+  const rlaBenchSql = getLevelSql('Benchmark_Score', rlaCurrentThresholds);
 
-    try {
-        const connection = await connectToDatabase();
+  try {
+    const connection = await connectToDatabase();
 
-        // Define staarQuery first based on parameters - Dynamic Logic
-        const staarQuery = !grade
-            ? subject === 'rla'
-                ? `
+    // Define staarQuery first based on parameters - Dynamic Logic
+    const staarQuery = !grade
+      ? subject === 'rla'
+        ? `
             SELECT 
               ${rlaStaarSql} as level,
               COUNT(*) as total
@@ -69,8 +71,8 @@ export async function GET(request: Request) {
             ${teacher ? 'AND Teacher = ?' : ''}
             GROUP BY level
           `
-                : subject === 'campus'
-                    ? `
+        : subject === 'campus'
+          ? `
             SELECT 
               staar_level as level,
               CAST(SUM(total) AS SIGNED) as total
@@ -102,8 +104,8 @@ export async function GET(request: Request) {
             -- Order by explicit list if possible, or leave unordered for now 
             -- (Sorting is usually handled by frontend based on config, but maintaining FIELD sort logic in SQL requires dynamic string too)
           `
-                    : version === 'spring' || version === 'spring-algebra'
-                        ? `
+          : version === 'spring' || version === 'spring-algebra'
+            ? `
             SELECT 
               ${mathStaarSql} as level,
               COUNT(*) as total
@@ -117,7 +119,7 @@ export async function GET(request: Request) {
             ${teacher ? 'AND TRIM(`Benchmark Teacher`) = ?' : ''}
             GROUP BY level
           `
-                        : `
+            : `
            -- Fallback for 'fall' version or others if needed
             SELECT 
               ${mathStaarSql} as level,
@@ -130,8 +132,8 @@ export async function GET(request: Request) {
             ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
             GROUP BY level
           `
-            : subject === 'rla'
-                ? `
+      : subject === 'rla'
+        ? `
           SELECT 
             ${rlaStaarSql} as level,
             COUNT(*) as total
@@ -140,34 +142,34 @@ export async function GET(request: Request) {
           ${teacher ? 'AND Teacher = ?' : ''}
           GROUP BY level
         `
-                : `
+        : `
           SELECT 
             ${mathStaarSql} as level,
             COUNT(*) as total
           FROM ${subject === 'math'
-                    ? version === 'fall'
-                        ? grade === '7'
-                            ? 'data7'
-                            : 'data'
-                        : grade === '7'
-                            ? 'spring7_matrix_view'
-                            : 'spring_matrix_data'
-                    : grade === '7'
-                        ? 'rla_data7'
-                        : 'rla_data8'
-                }
+          ? version === 'fall'
+            ? grade === '7'
+              ? 'data7'
+              : 'data'
+            : grade === '7'
+              ? 'spring7_matrix_view'
+              : 'spring_matrix_data'
+          : grade === '7'
+            ? 'rla_data7'
+            : 'rla_data8'
+        }
           WHERE 1=1
           ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
           ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
           GROUP BY level
         `;
 
-        let query = '';
-        if (!grade) {
-            // No grade filter - combine data from both grades
-            if (subject === 'campus') {
-                // Campus view combines both math and RLA data
-                query = `
+    let query = '';
+    if (!grade) {
+      // No grade filter - combine data from both grades
+      if (subject === 'campus') {
+        // Campus view combines both math and RLA data
+        query = `
           WITH MathData AS (
             SELECT 
               ${mathStaarSql} as staar_level,
@@ -216,15 +218,15 @@ export async function GET(request: Request) {
             benchmark_level,
             group_number
         `;
-                const [result] = await connection.execute(query, grade ? [grade] : []);
-                const [staarTotals] = await connection.execute(staarQuery, teacher ? [teacher] : []);
-                await connection.end();
-                return NextResponse.json({
-                    matrixData: result,
-                    staarTotals
-                });
-            } else if (subject === 'rla') {
-                query = `
+        const [result] = await connection.execute(query, grade ? [grade] : []);
+        const [staarTotals] = await connection.execute(staarQuery, teacher ? [teacher] : []);
+        await connection.end();
+        return NextResponse.json({
+          matrixData: result,
+          staarTotals
+        });
+      } else if (subject === 'rla') {
+        query = `
           SELECT 
             ${rlaStaarSql} as level,
             COUNT(*) as total
@@ -237,9 +239,9 @@ export async function GET(request: Request) {
           ${teacher ? 'AND Teacher = ?' : ''}
           GROUP BY level
         `;
-            } else {
-                if (version === 'spring' || version === 'spring-algebra') {
-                    query = `
+      } else {
+        if (version === 'spring' || version === 'spring-algebra') {
+          query = `
             SELECT 
               ${mathStaarSql} as staar_level,
               ${mathBenchSql} as benchmark_level,
@@ -255,9 +257,9 @@ export async function GET(request: Request) {
             ${teacher ? 'AND `Benchmark Teacher` = ?' : ''} 
             GROUP BY staar_level, benchmark_level, \`Group #\`
           `;
-                } else {
-                    // Original logic for regular version
-                    query = `
+        } else {
+          // Original logic for regular version
+          query = `
             SELECT 
               ${mathStaarSql} as staar_level,
               ${mathBenchSql} as benchmark_level,
@@ -271,12 +273,12 @@ export async function GET(request: Request) {
             ${teacher ? 'WHERE `Benchmark Teacher` = ?' : ''}
             GROUP BY staar_level, benchmark_level, \`Group #\`
           `;
-                }
-            }
-        } else {
-            // Single grade filter
-            if (subject === 'campus') {
-                query = `
+        }
+      }
+    } else {
+      // Single grade filter
+      if (subject === 'campus') {
+        query = `
           WITH MathData AS (
             SELECT 
               ${mathStaarSql} as staar_level,
@@ -322,26 +324,26 @@ export async function GET(request: Request) {
             FIELD(benchmark_level, 'Did Not Meet Low', 'Did Not Meet High', 'Approaches Low', 'Approaches High', 'Meets', 'Masters')
         `;
 
-                if (teacher) {
-                    const [result] = await connection.execute(query, [grade, teacher]);
-                    const [staarTotals] = await connection.execute(staarQuery, [grade, teacher]);
-                    await connection.end();
-                    return NextResponse.json({
-                        matrixData: result,
-                        staarTotals
-                    });
-                } else {
-                    const [result] = await connection.execute(query, [grade]);
-                    const [staarTotals] = await connection.execute(staarQuery, [grade]);
-                    await connection.end();
-                    return NextResponse.json({
-                        matrixData: result,
-                        staarTotals
-                    });
-                }
-            } else if (subject === 'rla') {
-                const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
-                query = `
+        if (teacher) {
+          const [result] = await connection.execute(query, [grade, teacher]);
+          const [staarTotals] = await connection.execute(staarQuery, [grade, teacher]);
+          await connection.end();
+          return NextResponse.json({
+            matrixData: result,
+            staarTotals
+          });
+        } else {
+          const [result] = await connection.execute(query, [grade]);
+          const [staarTotals] = await connection.execute(staarQuery, [grade]);
+          await connection.end();
+          return NextResponse.json({
+            matrixData: result,
+            staarTotals
+          });
+        }
+      } else if (subject === 'rla') {
+        const tableName = grade === '7' ? 'rla_data7' : 'rla_data8';
+        query = `
           SELECT 
             STAAR_Performance as staar_level,
             Benchmark_Performance as benchmark_level,
@@ -352,15 +354,15 @@ export async function GET(request: Request) {
           ${teacher ? 'AND Teacher = ?' : ''}
           GROUP BY STAAR_Performance, Benchmark_Performance, Group_Number
         `;
-            } else {
-                const tableName = subject === 'math' ?
-                    (version === 'fall' ?
-                        (grade === '7' ? 'data7' : 'data') :
-                        (grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data')
-                    ) :
-                    (grade === '7' ? 'rla_data7' : 'rla_data8');
+      } else {
+        const tableName = subject === 'math' ?
+          (version === 'fall' ?
+            (grade === '7' ? 'data7' : 'data') :
+            (grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data')
+          ) :
+          (grade === '7' ? 'rla_data7' : 'rla_data8');
 
-                query = `
+        query = `
           SELECT 
             ${mathStaarSql} as staar_level,
             ${mathBenchSql} as benchmark_level,
@@ -372,90 +374,92 @@ export async function GET(request: Request) {
           ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
           GROUP BY staar_level, benchmark_level, \`Group #\`
         `;
-            }
-        }
-
-        const [matrixData] = await connection.execute(
-            query,
-            teacher ? [teacher] : []
-        );
-
-        const [staarTotals] = await connection.execute(staarQuery, teacher ? [teacher] : []);
-
-        await connection.end();
-
-        return NextResponse.json({
-            matrixData,
-            staarTotals
-        });
-
-    } catch (error) {
-        console.error('Database error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+      }
     }
+
+    const [matrixData] = await connection.execute(
+      query,
+      teacher ? [teacher] : []
+    );
+
+    const [staarTotals] = await connection.execute(staarQuery, teacher ? [teacher] : []);
+
+    await connection.end();
+
+    return NextResponse.json({
+      matrixData,
+      staarTotals
+    });
+
+  } catch (error) {
+    console.error('Database error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-    let connection;
-    try {
-        const {
-            subject = 'math',
-            staar_level,
-            benchmark_level,
-            group_number,
-            teacher,
-            grade,
-            version = 'spring',
-            search  // Add search to destructuring
-        } = await request.json();
+  let connection;
+  try {
+    const {
+      subject = 'math',
+      staar_level,
+      benchmark_level,
+      group_number,
+      teacher,
+      grade,
+      version = 'spring',
+      search  // Add search to destructuring
+    } = await request.json();
 
-        let params: DatabaseParams = []; // Define params at the top level
-        let query = '';
+    let params: DatabaseParams = []; // Define params at the top level
+    let query = '';
 
-        // Load config
-        const config = await getConfig();
-        const mathThresholds = config?.thresholds?.math || [];
-        const rlaThresholds = config?.thresholds?.rla || [];
+    // Load config
+    const config = await getConfig();
+    const mathPreviousThresholds = config?.thresholds?.math?.previous || [];
+    const mathCurrentThresholds = config?.thresholds?.math?.current || [];
+    const rlaPreviousThresholds = config?.thresholds?.rla?.previous || [];
+    const rlaCurrentThresholds = config?.thresholds?.rla?.current || [];
 
-        const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathThresholds);
-        const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathThresholds);
+    const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathPreviousThresholds);
+    const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathCurrentThresholds);
 
-        // RLA table column names are consistent: STAAR_Score, Benchmark_Score, but need aliasing if used in JOINs
-        const rlaStaarSql = getLevelSql('r.STAAR_Score', rlaThresholds);
-        const rlaBenchSql = getLevelSql('r.Benchmark_Score', rlaThresholds);
+    // RLA table column names are consistent: STAAR_Score, Benchmark_Score, but need aliasing if used in JOINs
+    const rlaStaarSql = getLevelSql('r.STAAR_Score', rlaPreviousThresholds);
+    const rlaBenchSql = getLevelSql('r.Benchmark_Score', rlaCurrentThresholds);
 
-        console.log('POST request params:', {
-            subject,
-            staar_level,
-            benchmark_level,
-            group_number,
-            teacher,
-            grade,
-            version,
-            search
-        });
+    console.log('POST request params:', {
+      subject,
+      staar_level,
+      benchmark_level,
+      group_number,
+      teacher,
+      grade,
+      version,
+      search
+    });
 
-        connection = await connectToDatabase();
+    connection = await connectToDatabase();
 
-        // Handle search case
-        if (search) {
-            const whereClause = [];
-            params = [];
+    // Handle search case
+    if (search) {
+      const whereClause = [];
+      params = [];
 
-            // Add search condition first with correct table alias 'm'
-            whereClause.push('(m.`First Name` LIKE ? OR m.`Last Name` LIKE ? OR m.`Local Id` LIKE ?)');
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      // Add search condition first with correct table alias 'm'
+      whereClause.push('(m.`First Name` LIKE ? OR m.`Last Name` LIKE ? OR m.`Local Id` LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
 
-            if (teacher) {
-                whereClause.push(`m.${subject === 'rla' ? 'Teacher' : '`Benchmark Teacher`'} = ?`);
-                params.push(teacher);
-            }
-            if (grade) {
-                whereClause.push('m.Grade = ?');
-                params.push(grade);
-            }
+      if (teacher) {
+        whereClause.push(`m.${subject === 'rla' ? 'Teacher' : '`Benchmark Teacher`'} = ?`);
+        params.push(teacher);
+      }
+      if (grade) {
+        whereClause.push('m.Grade = ?');
+        params.push(grade);
+      }
 
-            query = `
+      query = `
         SELECT DISTINCT
           m.\`First Name\`,
           m.\`Last Name\`,
@@ -497,15 +501,15 @@ export async function POST(request: Request) {
         LIMIT 10
       `;
 
-            const [students] = await connection.execute(query, params);
-            await connection.end();
-            return NextResponse.json({ students });
-        }
+      const [students] = await connection.execute(query, params);
+      await connection.end();
+      return NextResponse.json({ students });
+    }
 
-        // Handle cell click case
-        else if (staar_level && benchmark_level && group_number) {
-            if (!grade && subject === 'rla') {
-                query = `
+    // Handle cell click case
+    else if (staar_level && benchmark_level && group_number) {
+      if (!grade && subject === 'rla') {
+        query = `
           SELECT DISTINCT
             FirstName as 'First Name',
             LastName as 'Last Name',
@@ -525,28 +529,28 @@ export async function POST(request: Request) {
             AND Group_Number = ?
             ${teacher ? 'AND Teacher = ?' : ''}
         `;
-                params = [staar_level, benchmark_level, group_number];
-                if (teacher) params.push(teacher);
-            } else {
-                const whereClause = ['1=1'];
-                params = [staar_level, benchmark_level, group_number];
+        params = [staar_level, benchmark_level, group_number];
+        if (teacher) params.push(teacher);
+      } else {
+        const whereClause = ['1=1'];
+        params = [staar_level, benchmark_level, group_number];
 
-                whereClause.push(`${mathStaarSql} = ?`);
-                whereClause.push(`${mathBenchSql} = ?`);
-                whereClause.push('m.`Group #` = ?');
+        whereClause.push(`${mathStaarSql} = ?`);
+        whereClause.push(`${mathBenchSql} = ?`);
+        whereClause.push('m.`Group #` = ?');
 
-                if (teacher) {
-                    whereClause.push('m.`Benchmark Teacher` = ?');
-                    params.push(teacher);
-                }
+        if (teacher) {
+          whereClause.push('m.`Benchmark Teacher` = ?');
+          params.push(teacher);
+        }
 
-                if (grade) {
-                    whereClause.push('m.Grade = ?');
-                    params.push(grade);
-                }
+        if (grade) {
+          whereClause.push('m.Grade = ?');
+          params.push(grade);
+        }
 
-                // Modified query to include both math and RLA data
-                query = `
+        // Modified query to include both math and RLA data
+        query = `
           SELECT DISTINCT
             m.\`First Name\`,
             m.\`Last Name\`,
@@ -579,25 +583,25 @@ export async function POST(request: Request) {
           ) r ON m.\`Local Id\` = r.LocalId
           WHERE ${whereClause.join(' AND ')}
         `;
-            }
-        }
-
-        const [students] = await connection.execute(query, params);
-
-        await connection.end();
-
-        return NextResponse.json({ students });
-
-    } catch (error) {
-        console.error('Database error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    } finally {
-        if (connection) {
-            try {
-                await connection.end();
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
-        }
+      }
     }
+
+    const [students] = await connection.execute(query, params);
+
+    await connection.end();
+
+    return NextResponse.json({ students });
+
+  } catch (error) {
+    console.error('Database error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } finally {
+    if (connection) {
+      try {
+        await connection.end();
+      } catch (err) {
+        console.error('Error closing connection:', err);
+      }
+    }
+  }
 }
