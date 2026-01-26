@@ -1,29 +1,11 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTamboContextHelpers } from '@tambo-ai/react';
 import { UnifiedStudentScoresTable } from './UnifiedStudentScoresTable';
+import { db, DEFAULT_THRESHOLDS } from '@/lib/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 
-interface Student {
-  id: number;
-  local_id: string;
-  Teacher: string;
-  'First Name': string;
-  'Last Name': string;
-  Grade: string;
-  Campus: string;
-  benchmark_score: number;
-  staar_score: number;
-  staar_level: string;
-  benchmark_level: string;
-  group_number: number;
-  rla_group_number?: number;
-  rla_staar_score?: number;
-  rla_benchmark_score?: number;
-  rla_staar_level?: string;
-  rla_benchmark_level?: string;
-  fall_benchmark_score?: number | string;
-  spring_benchmark_score?: number | string;
-}
+import { Student } from '@/lib/db';
 
 interface Assessment {
   LastName: string;
@@ -122,162 +104,149 @@ interface Config {
 }
 
 const PerformanceMatrix = () => {
-  const [matrixData, setMatrixData] = useState<CellData[]>([]);
-  const [staarTotals, setStaarTotals] = useState<{ [key: string]: number }>({});
+  /* Live Data from IndexedDB */
+  const students = useLiveQuery(() => db.students.toArray()) || [];
+  const settings = useLiveQuery(() => db.settings.toArray()) || [];
+
+  const [loading, setLoading] = useState(false); // Kept for UI compat, but live query is instant-ish
   const [selectedCell, setSelectedCell] = useState<CellData | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
+  // Assessments not implemented in minimal local db yet
   const [studentAssessments, setStudentAssessments] = useState<{ [key: string]: Assessment[] }>({});
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showAssessments, setShowAssessments] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [teachers, setTeachers] = useState<TeacherData[]>([]);
+
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring-algebra');
-  const [hasTeacherData, setHasTeacherData] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('math');
-  const [availableGrades, setAvailableGrades] = useState<{
-    grades: string[];
-    hasData: { [key: string]: boolean };
-  }>({ grades: [], hasData: {} });
+
+  // Derive Teachers and Grades from students
+  const { teachers, availableGrades, hasTeacherData } = useMemo(() => {
+    if (!students.length) return { teachers: [], availableGrades: { grades: [], hasData: {} }, hasTeacherData: false };
+
+    // Filter by subject/version roughly if needed, but usually we list all
+    const distinctGrades = Array.from(new Set(students.map(s => s.Grade))).sort();
+    const distinctTeachers = Array.from(new Set(students.map(s => s.Teacher))).filter(Boolean).sort().map(t => ({ name: t, grade: '' }));
+
+    return {
+      teachers: distinctTeachers,
+      availableGrades: { grades: distinctGrades, hasData: {} },
+      hasTeacherData: distinctTeachers.length > 0
+    };
+  }, [students]);
+
+  // Computed config from DB or defaults
+  const config = useMemo(() => {
+    const labels = settings.find(s => s.id === 'labels')?.value || { xAxis: 'Current Benchmark', yAxis: 'Previous Performance' };
+    const thresholds = settings.find(s => s.id === 'thresholds')?.value || DEFAULT_THRESHOLDS;
+    return { labels, thresholds };
+  }, [settings]);
 
   const { addContextHelper, removeContextHelper } = useTamboContextHelpers();
 
-  const fetchConfig = useCallback(async () => {
-    try {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      setConfig(data);
-    } catch (err) {
-      console.error('Error fetching config:', err);
+  // Helper to get level from score and thresholds
+  const getLevel = useCallback((score: number | null | undefined, thresholds: Threshold[]): string => {
+    if (score === null || score === undefined) return 'N/A';
+    for (const threshold of thresholds) {
+      if (score >= threshold.min && score <= threshold.max) {
+        return threshold.label;
+      }
     }
+    return 'N/A';
   }, []);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = new URL('/api/matrix', window.location.origin);
-      if (selectedTeacher) {
-        url.searchParams.append('teacher', selectedTeacher);
-      }
-      if (selectedGrade) {
-        url.searchParams.append('grade', selectedGrade);
-      }
-      url.searchParams.append('version', selectedVersion);
-      url.searchParams.append('subject', selectedSubject);
+  const subjectConfig = useMemo(() => {
+    const subj = (selectedSubject === 'rla' ? 'rla' : 'math') as 'math' | 'rla';
+    const thresholds = config.thresholds as any;
+    return thresholds[subj] || (DEFAULT_THRESHOLDS as any)[subj];
+  }, [config, selectedSubject]);
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('PerformanceMatrix data received:', data);
+  const finalPreviousLevels = useMemo(() => {
+    // Y-Axis: High to Low (Top to Bottom)
+    const sorted = [...(subjectConfig?.previous || [])].sort((a: Threshold, b: Threshold) => b.min - a.min);
+    return sorted.length > 0 ? sorted.map((t: Threshold) => t.label) : ['Masters', 'Meets', 'Approaches', 'Did Not Meet'];
+  }, [subjectConfig]);
 
-      if (!data) {
-        console.warn('Received null/empty data from API');
-        setMatrixData([]);
-        setStaarTotals({});
-        setLoading(false);
-        return;
-      }
+  const finalCurrentLevels = useMemo(() => {
+    // X-Axis: Low to High (Left to Right)
+    const sorted = [...(subjectConfig?.current || [])].sort((a: Threshold, b: Threshold) => a.min - b.min);
+    return sorted.length > 0 ? sorted.map((t: Threshold) => t.label) : ['Did Not Meet', 'Approaches', 'Meets', 'Masters'];
+  }, [subjectConfig]);
 
-      const safeMatrixData = Array.isArray(data.matrixData) ? data.matrixData : [];
-      setMatrixData(safeMatrixData);
+  // Helper to get group number based on levels
+  const getGroupNumber = useCallback((staarLevel: string, benchmarkLevel: string): number => {
+    const staarIdx = finalPreviousLevels.indexOf(staarLevel);
+    const benchmarkIdx = finalCurrentLevels.indexOf(benchmarkLevel);
+    if (staarIdx === -1 || benchmarkIdx === -1) return 0;
+    // Map to group number 1-16 (4x4)
+    // Row major order
+    return (staarIdx * finalCurrentLevels.length) + benchmarkIdx + 1;
+  }, [finalPreviousLevels, finalCurrentLevels]);
 
-      const rawStaarTotals = Array.isArray(data.staarTotals) ? data.staarTotals : [];
-      const safeStaarTotals = rawStaarTotals.reduce((acc: { [key: string]: number }, curr: { level?: string | number; total?: string | number }) => {
-        if (curr && curr.level !== undefined) {
-          const count = Number(curr.total);
-          acc[String(curr.level)] = isNaN(count) ? 0 : count;
-        }
-        return acc;
-      }, {});
-      setStaarTotals(safeStaarTotals);
+  // Matrix Data calculation
+  const matrixData = useMemo(() => {
+    if (!students.length) return [];
 
-      setLoading(false);
-    } catch (error) {
-      console.error('PerformanceMatrix fetchData error:', error);
-      setMatrixData([]);
-      setStaarTotals({});
-      setLoading(false);
-    }
-  }, [selectedTeacher, selectedGrade, selectedVersion, selectedSubject]);
+    // 1. Filter
+    const filtered = students.filter(s => {
+      if (selectedGrade && s.Grade !== selectedGrade) return false;
+      if (selectedTeacher && s.Teacher !== selectedTeacher) return false;
+      return true;
+    });
 
-  const fetchTeachers = useCallback(async () => {
-    // Fall data doesn't have teacher/grade metadata yet, so skip fetching
-    if (selectedVersion === 'fall') {
-      setTeachers([]);
-      setHasTeacherData(false);
-      return;
-    }
+    // 2. Aggregate
+    const counts: Record<string, CellData> = {};
 
-    try {
-      const url = new URL('/api/teachers', window.location.origin);
-      if (selectedGrade) {
-        url.searchParams.append('grade', selectedGrade);
-      }
-      url.searchParams.append('version', selectedVersion);
-      url.searchParams.append('subject', selectedSubject); // Add subject parameter
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      const data = await response.json();
-
-      if (!data) {
-        console.warn('PerformanceMatrix: fetchTeachers received empty data');
-        setTeachers([]);
-        setHasTeacherData(false);
-        return;
-      }
-
-      setTeachers(Array.isArray(data.teachers) ? data.teachers : []);
-      setHasTeacherData(!!data.gradeHasData);
-
-      // Reset teacher selection if no data available
-      if (!data.gradeHasData) {
-        setSelectedTeacher(null);
-      }
-    } catch (error) {
-      console.error('Error fetching teachers:', error);
-    }
-  }, [selectedGrade, selectedVersion, selectedSubject]);
-
-  const fetchAvailableGrades = useCallback(async () => {
-    // Fall data lacks grade metadata
-    if (selectedVersion === 'fall') {
-      setAvailableGrades({ grades: [], hasData: {} });
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/grades?version=${selectedVersion}`);
-      if (!response.ok) throw new Error('Failed to fetch grades');
-
-      const data = await response.json();
-
-      if (!data) {
-        setAvailableGrades({ grades: [], hasData: {} });
-        return;
-      }
-
-      setAvailableGrades({
-        grades: Array.isArray(data?.grades) ? data.grades : [],
-        hasData: data?.hasData || {}
+    // Initialize all cells to 0
+    finalPreviousLevels.forEach(prev => {
+      finalCurrentLevels.forEach(curr => {
+        const key = `${prev}-${curr}`;
+        counts[key] = {
+          staar_level: prev,
+          benchmark_level: curr,
+          student_count: 0,
+          group_number: getGroupNumber(prev, curr)
+        };
       });
-    } catch (error) {
-      console.error('Error fetching grades:', error);
-    }
-  }, [selectedVersion]);
+    });
+
+    filtered.forEach(s => {
+      let prevScore: number | null | undefined = s.StaarScore;
+      let currScore: number | null | undefined = selectedVersion === 'fall' ? s.FallScore : s.SpringScore;
+
+      // Logic to determine levels dynamically
+      const prevLevel = getLevel(prevScore, subjectConfig.previous);
+      const currLevel = getLevel(currScore, subjectConfig.current);
+
+      const key = `${prevLevel}-${currLevel}`;
+      if (counts[key]) {
+        counts[key].student_count++;
+      }
+    });
+
+    return Object.values(counts);
+
+  }, [students, selectedGrade, selectedTeacher, selectedVersion, selectedSubject, subjectConfig, finalPreviousLevels, finalCurrentLevels, getLevel, getGroupNumber]);
+
+  // Calculate STAAR Totals
+  const staarTotals = useMemo(() => {
+    if (!matrixData.length) return {};
+    const totals: Record<string, number> = {};
+    matrixData.forEach(cell => {
+      totals[cell.staar_level] = (totals[cell.staar_level] || 0) + cell.student_count;
+    });
+    return totals;
+  }, [matrixData]);
+
+
+  // Removed fetchTeachers and fetchAvailableGrades
 
   useEffect(() => {
     const handleAction = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail?.action === 'refresh') {
-        fetchData();
-        fetchConfig();
+        // useLiveQuery handles refresh automatically
         return;
       }
       if (customEvent.detail?.component === 'PerformanceMatrix') {
@@ -293,7 +262,7 @@ const PerformanceMatrix = () => {
     };
     window.addEventListener('tambo-action', handleAction);
     return () => window.removeEventListener('tambo-action', handleAction);
-  }, [fetchData, fetchConfig]);
+  }, []);
 
   useEffect(() => {
     addContextHelper("dashboardFilters", () => ({
@@ -309,69 +278,16 @@ const PerformanceMatrix = () => {
   }, [selectedSubject, selectedVersion, selectedGrade, selectedTeacher, addContextHelper, removeContextHelper]);
 
   const [isMounted, setIsMounted] = useState(false);
-
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const [config, setConfig] = useState<Config | null>(null);
+  // Config is derived in useMemo above, removing duplicate state
 
-  // Fetch config on mount
-  useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
-
-  const subjectConfig = config?.thresholds?.[selectedSubject === 'rla' ? 'rla' : 'math'];
-
-  const previousLevels = (subjectConfig?.previous || []).map((t: Threshold) => t?.label).filter(Boolean) as string[];
-  const finalPreviousLevels = previousLevels.length > 0 ? previousLevels : [
-    'Did Not Meet Low',
-    'Did Not Meet High',
-    'Approaches Low',
-    'Approaches High',
-    'Meets',
-    'Masters'
-  ];
-
-  const currentLevels = (subjectConfig?.current || []).map((t: Threshold) => t?.label).filter(Boolean) as string[];
-  const finalCurrentLevels = currentLevels.length > 0 ? currentLevels : [
-    'Did Not Meet Low',
-    'Did Not Meet High',
-    'Approaches Low',
-    'Approaches High',
-    'Meets',
-    'Masters'
-  ];
+  // Duplicate logic removed
 
   const xAxisLabel = config?.labels?.xAxis || 'Current Benchmark';
   const yAxisLabel = config?.labels?.yAxis || 'Previous Performance';
-
-  useEffect(() => {
-    fetchTeachers();
-  }, [fetchTeachers]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Add useEffect to fetch grades when version changes
-  useEffect(() => {
-    fetchAvailableGrades();
-  }, [fetchAvailableGrades]);
-
-  // Update version options based on subject
-  const getVersionOptions = () => {
-    if (selectedSubject === 'rla') {
-      return [
-        { value: 'spring', label: 'Spring' }
-      ];
-    }
-    return [
-      { value: 'fall', label: 'Fall' },
-      { value: 'spring-algebra', label: 'Spring' },
-      { value: 'spring', label: 'Spring without Algebra I' }
-    ];
-  };
 
   // Reset version when changing subjects
   useEffect(() => {
@@ -380,59 +296,23 @@ const PerformanceMatrix = () => {
     }
   }, [selectedSubject]);
 
-  const fetchStudentAssessments = async (localId: string) => {
-    try {
-      const assessmentResponse = await fetch(`/api/assessments?localId=${localId}`);
-      const assessmentData = await assessmentResponse.json();
-      setStudentAssessments(prev => ({
-        ...prev,
-        [localId]: assessmentData.assessments || []
-      }));
-      setSelectedStudentId(localId);
-    } catch (error) {
-      console.error('Error fetching student assessments:', error);
-    }
-  };
+  // Assessments not implemented in minimal version
 
   const fetchStudentDetails = async (cell: CellData) => {
-    try {
-      console.log('Fetching students for:', {
-        subject: selectedSubject,
-        cell,
-        teacher: selectedTeacher,
-        grade: selectedGrade
-      });
+    // Filter local students based on cell data and current filters
+    const cellStudents = students.filter(s => {
+      if (selectedGrade && s.Grade !== selectedGrade) return false;
+      if (selectedTeacher && s.Teacher !== selectedTeacher) return false;
 
-      const response = await fetch('/api/matrix', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          staar_level: cell.staar_level,
-          benchmark_level: cell.benchmark_level,
-          group_number: cell.group_number,
-          teacher: selectedTeacher || undefined,
-          grade: selectedGrade,
-          version: selectedVersion,
-          subject: selectedSubject  // Add subject to POST request
-        }),
-      });
-      const data = await response.json();
-      console.log('Received student data:', data.students);
-      setSelectedStudents(data.students || []);
+      const prevScore = s.StaarScore;
+      const currScore = selectedVersion === 'fall' ? s.FallScore : s.SpringScore;
 
-      // Fetch assessments for each student
-      const assessments: { [key: string]: Assessment[] } = {};
-      for (const student of data.students) {
-        if (student.local_id) {
-          await fetchStudentAssessments(student.local_id);
-        }
-      }
-      setStudentAssessments(assessments);
-    } catch (error) {
-      console.error('Error fetching student details:', error);
-    }
+      const prevLvl = getLevel(prevScore, subjectConfig.previous);
+      const currLvl = getLevel(currScore, subjectConfig.current);
+
+      return prevLvl === cell.staar_level && currLvl === cell.benchmark_level;
+    });
+    setSelectedStudents(cellStudents);
   };
 
   const getCellData = (staarLevel: string, benchmarkLevel: string) => {
@@ -490,8 +370,8 @@ const PerformanceMatrix = () => {
   // Ensure we use the same total everywhere
   const calculateGrandTotal = () => {
     let total = 0;
-    previousLevels.forEach(staarLevel => {
-      currentLevels.forEach(benchmarkLevel => {
+    finalPreviousLevels.forEach(staarLevel => {
+      finalCurrentLevels.forEach(benchmarkLevel => {
         const cellData = getCellData(staarLevel, benchmarkLevel);
         total += cellData.student_count;
       });
@@ -509,26 +389,26 @@ const PerformanceMatrix = () => {
         const pointsMap = {
           base: matrixData
             .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 1.0,
           half: matrixData
             .filter(d => d && [15, 22, 29].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.5,
           quarter: matrixData
             .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High', 'Did Not Meet'].includes(d.staar_level))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.25
         };
         return pointsMap.base + pointsMap.half + pointsMap.quarter;
       } else {
         const pointsMap = {
           base: matrixData
             .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 1.0,
           half: matrixData
             .filter(d => d && [29, 22, 15].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.5,
           quarter: matrixData
             .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
+            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.25
         };
         return pointsMap.base + pointsMap.half + pointsMap.quarter;
       }
@@ -584,23 +464,12 @@ const PerformanceMatrix = () => {
                   return;
                 }
 
-                try {
-                  const response = await fetch('/api/matrix', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      search: searchTerm,
-                      teacher: selectedTeacher || undefined,
-                      grade: selectedGrade,
-                      version: selectedVersion,
-                      subject: selectedSubject
-                    }),
-                  });
-                  const data = await response.json();
-                  setSearchResults(Array.isArray(data.students) ? data.students : []);
-                } catch (error) {
-                  console.error('Error searching:', error);
-                }
+                // Local Search
+                const found = students.filter(s =>
+                  (s.FirstName + ' ' + s.LastName).toLowerCase().includes(searchTerm) ||
+                  s.LocalId.includes(searchTerm)
+                );
+                setSearchResults(found);
               }}
               className="bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:border-white outline-none w-48"
             />
@@ -623,14 +492,16 @@ const PerformanceMatrix = () => {
           <h4 className="font-bold mb-4">Matching Students ({searchResults.length})</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {searchResults.map((student, index) => {
-              // Get the math color class
-              const mathColorClass = student.group_number ?
-                getCellColor(student.group_number, 1) :
-                'bg-gray-900';
+              // Compute levels and group number on the fly
+              const staarScore = student.StaarScore;
+              const benchmarkScore = selectedVersion === 'fall' ? student.FallScore : student.SpringScore;
+              const staarLevel = getLevel(staarScore, subjectConfig.previous);
+              const benchmarkLevel = getLevel(benchmarkScore, subjectConfig.current);
+              const groupNumber = getGroupNumber(staarLevel, benchmarkLevel);
 
-              // Get the RLA color class
-              const rlaColorClass = student.rla_group_number ?
-                getCellColor(student.rla_group_number, 1) :
+              // Get the math color class
+              const mathColorClass = groupNumber ?
+                getCellColor(groupNumber, 1) :
                 'bg-gray-900';
 
               return (
@@ -638,7 +509,7 @@ const PerformanceMatrix = () => {
                   className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
                 >
                   <div className="mb-2">
-                    <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                    <div className="font-bold">{student.FirstName} {student.LastName}</div>
                     <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
                   </div>
 
@@ -647,24 +518,24 @@ const PerformanceMatrix = () => {
                     {/* STAAR Scores */}
                     <div className={`${mathColorClass} p-2 rounded`}>
                       <div className="font-bold opacity-75 text-xs mb-1">STAAR</div>
-                      <div>{student.staar_score || 'N/A'}</div>
-                      <div className="text-xs">{student.staar_level || 'N/A'}</div>
+                      <div>{student.StaarScore || 'N/A'}</div>
+                      <div className="text-xs">{student.StaarLevel || staarLevel || 'N/A'}</div>
                     </div>
 
                     {/* Fall Benchmark */}
                     <div className={`${mathColorClass} p-2 rounded`}>
                       <div className="font-bold opacity-75 text-xs mb-1">Fall</div>
-                      <div>{student.fall_benchmark_score || 'N/A'}</div>
+                      <div>{student.FallScore || 'N/A'}</div>
                       <div className="text-xs opacity-75">Benchmark</div>
                     </div>
 
                     {/* Spring Benchmark */}
                     <div className={`${mathColorClass} p-2 rounded relative`}>
                       <div className="font-bold opacity-75 text-xs mb-1">Spring</div>
-                      {student.spring_benchmark_score ? (
+                      {student.SpringScore ? (
                         <>
-                          <div>{student.spring_benchmark_score}</div>
-                          <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
+                          <div>{student.SpringScore}</div>
+                          <div className="text-xs">{student.SpringLevel || benchmarkLevel || 'N/A'}</div>
                         </>
                       ) : (
                         <div className="border-2 border-dashed border-white/30 h-8 w-8 rounded-full flex items-center justify-center mx-auto mt-1 opacity-50 text-xs">
@@ -672,9 +543,9 @@ const PerformanceMatrix = () => {
                         </div>
                       )}
 
-                      {student.group_number && (
+                      {groupNumber > 0 && (
                         <div className="text-xs font-bold mt-1">
-                          Group {student.group_number}
+                          Group {groupNumber}
                         </div>
                       )}
                     </div>
@@ -715,8 +586,8 @@ const PerformanceMatrix = () => {
             <button
               onClick={() => setSelectedVersion('fall')}
               className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion === 'fall'
-                  ? 'bg-white text-black shadow-lg scale-105'
-                  : 'text-white/50 hover:text-white'
+                ? 'bg-white text-black shadow-lg scale-105'
+                : 'text-white/50 hover:text-white'
                 }`}
             >
               Fall
@@ -724,8 +595,8 @@ const PerformanceMatrix = () => {
             <button
               onClick={() => setSelectedVersion('spring-algebra')}
               className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion !== 'fall'
-                  ? 'bg-white text-black shadow-lg scale-105'
-                  : 'text-white/50 hover:text-white'
+                ? 'bg-white text-black shadow-lg scale-105'
+                : 'text-white/50 hover:text-white'
                 }`}
             >
               Spring
@@ -791,28 +662,24 @@ const PerformanceMatrix = () => {
                     getCellColor(selectedCell.group_number, 1) :
                     'bg-gray-900';
 
-                  const rlaColorClass = student.rla_group_number ?
-                    getCellColor(student.rla_group_number, 1) :
-                    'bg-gray-900';
-
                   return (
                     <div key={index}
                       className="p-2 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900 text-sm"
                     >
                       <div className="font-bold border-b border-gray-700 pb-1 mb-1">
-                        {student['First Name']} {student['Last Name']}
+                        {student.FirstName} {student.LastName}
                         <div className="text-xs opacity-75">{student.Grade}th • {student.Teacher}</div>
                       </div>
 
                       <div className="grid grid-cols-1">
                         <div className={`${mathColorClass} p-1 rounded text-xs`}>
                           <div className="grid grid-cols-2">
-                            <span>{yAxisLabel}: {student.staar_score || '-'}</span>
-                            <span>{xAxisLabel}: {student.benchmark_score || '-'}</span>
+                            <span>{yAxisLabel}: {student.StaarScore || '-'}</span>
+                            <span>{xAxisLabel}: {selectedVersion === 'fall' ? student.FallScore : student.SpringScore || '-'}</span>
                           </div>
 
-                          {student.group_number && (
-                            <div className="font-bold">G{student.group_number}</div>
+                          {selectedCell.group_number && (
+                            <div className="font-bold">G{selectedCell.group_number}</div>
                           )}
                         </div>
                       </div>
@@ -824,72 +691,6 @@ const PerformanceMatrix = () => {
           </div>
         )}
 
-        {/* Assessment Modal */}
-        {showAssessments && selectedStudentId && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-black text-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto relative">
-              <button
-                onClick={() => setShowAssessments(false)}
-                className="absolute top-4 right-4 text-white hover:text-gray-300"
-              >
-                ✕
-              </button>
-              {selectedStudents.map((student) => {
-                if (student.local_id !== selectedStudentId) return null;
-                const assessments = studentAssessments[student.local_id] || [];
-
-                return (
-                  <div key={student.local_id}>
-                    <h3 className="text-xl font-bold mb-4">
-                      {student['First Name']} {student['Last Name']}&apos;s Assessment History
-                    </h3>
-                    {assessments.length > 0 ? (
-                      <div>
-                        <table className="w-full mb-4">
-                          <thead>
-                            <tr>
-                              <th className="border border-white p-2">Score</th>
-                              <th className="border border-white p-2">Points</th>
-                              <th className="border border-white p-2">Passed</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="hover:bg-gray-800">
-                              <td className="border border-white p-2">{assessments[0].Score}</td>
-                              <td className="border border-white p-2">{assessments[0].Points}</td>
-                              <td className="border border-white p-2">{assessments[0].Passed}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        <h4 className="text-lg font-bold mb-2">Question Answers:</h4>
-                        <div className="grid grid-cols-5 gap-2">
-                          {Object.entries(assessments[0])
-                            .filter(([key]) => key.startsWith('Q'))
-                            .map(([key, value]) => {
-                              const answer = value as string;
-                              const correctAnswer = answerKey[key]?.correct;
-                              const standard = answerKey[key]?.standard;
-                              let bgColor = 'bg-yellow-200'; // Default color for unanswered
-                              if (correctAnswer !== '') {
-                                bgColor = answer === correctAnswer ? 'bg-green-200' : 'bg-red-200';
-                              }
-                              return (
-                                <div key={key} className={`border border-white p-2 ${bgColor}`}>
-                                  <span className="font-bold">{key} ({standard}):</span> {answer}
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    ) : (
-                      <p>No assessment records found for this student.</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
         <table className="border-collapse w-full">
           <thead>
             <tr>
@@ -911,7 +712,7 @@ const PerformanceMatrix = () => {
           </thead>
           <tbody>
             {finalPreviousLevels.map((staarLevel, rowIndex) => {
-              const rowTotal = finalCurrentLevels.reduce((sum, benchmarkLevel) => {
+              const rowTotal = finalCurrentLevels.reduce((sum: number, benchmarkLevel: string) => {
                 const cellData = getCellData(staarLevel, benchmarkLevel);
                 return sum + cellData.student_count;
               }, 0);
@@ -953,7 +754,7 @@ const PerformanceMatrix = () => {
             <tr className="font-bold">
               <td className="border p-2 bg-black text-white">Column Total</td>
               {finalCurrentLevels.map((_, colIndex) => {
-                const colTotal = finalPreviousLevels.reduce((sum, staarLevel) => {
+                const colTotal = finalPreviousLevels.reduce((sum: number, staarLevel: string) => {
                   const cellData = getCellData(staarLevel, finalCurrentLevels[colIndex]);
                   return sum + cellData.student_count;
                 }, 0);
@@ -969,7 +770,7 @@ const PerformanceMatrix = () => {
             </tr>
           </tfoot>
         </table>
-      </div>
+      </div >
 
       <div className="mt-8 overflow-x-auto">
         <h2 className="text-xl font-bold mb-4">HB4545 Students</h2>
@@ -1044,7 +845,7 @@ const PerformanceMatrix = () => {
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -1053,38 +854,38 @@ const PerformanceMatrix = () => {
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
                     {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5).toFixed(1)}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
                     {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
                     {(matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
+                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
                 <tr className="font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2 text-center">
-                    {matrixData.reduce((sum, d) => sum + d.student_count, 0)}
+                    {matrixData.reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
                     {(
                       matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
+                        .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5 +
                       matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                        .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
                     ).toFixed(1)}
                   </td>
                 </tr>
@@ -1110,7 +911,7 @@ const PerformanceMatrix = () => {
                     {matrixData.filter(d =>
                       [36, 35, 30, 29].includes(d.group_number) &&
                       ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -1120,13 +921,13 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">
                     {matrixData.filter(d =>
                       [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
                     {(matrixData.filter(d =>
                       [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.25).toFixed(1)}
+                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25).toFixed(1)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -1134,7 +935,7 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">
                     {matrixData.filter(d =>
                       ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
@@ -1142,7 +943,7 @@ const PerformanceMatrix = () => {
                       matrixData.filter(d =>
                         [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
                         ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                      ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
+                      ).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25
                     ).toFixed(1)}
                   </td>
                 </tr>

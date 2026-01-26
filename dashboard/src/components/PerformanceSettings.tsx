@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { db, DEFAULT_THRESHOLDS } from '@/lib/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface Threshold {
     label: string;
@@ -26,44 +28,38 @@ interface Config {
 }
 
 export default function PerformanceSettings() {
+    // Load settings from DB
+    const settings = useLiveQuery(() => db.settings.toArray());
+
     const [config, setConfig] = useState<Config | null>(null);
-    const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    // Initialize config from DB or defaults once loaded
     useEffect(() => {
-        fetch('/api/settings')
-            .then(res => res.json())
-            .then(data => {
-                setConfig(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Error loading settings:', err);
-                setLoading(false);
-            });
-    }, []);
+        if (settings && !config) {
+            const labels = settings.find(s => s.id === 'labels')?.value || { xAxis: 'Current Benchmark', yAxis: 'Previous Performance' };
+            const thresholds = settings.find(s => s.id === 'thresholds')?.value || DEFAULT_THRESHOLDS;
+            setConfig({ labels, thresholds });
+        }
+    }, [settings, config]);
 
     const handleSave = async () => {
         if (!config) return;
         try {
-            const res = await fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
+            await db.transaction('rw', db.settings, async () => {
+                await db.settings.put({ id: 'labels', value: config.labels });
+                await db.settings.put({ id: 'thresholds', value: config.thresholds });
             });
-            if (res.ok) {
-                setMessage({ type: 'success', text: 'Settings saved successfully!' });
-                setTimeout(() => setMessage(null), 3000);
-            } else {
-                setMessage({ type: 'error', text: 'Failed to save settings.' });
-            }
-        } catch {
-            setMessage({ type: 'error', text: 'An error occurred while saving.' });
+
+            setMessage({ type: 'success', text: 'Settings saved successfully!' });
+            setTimeout(() => setMessage(null), 3000);
+        } catch (err) {
+            console.error('Error saving settings:', err);
+            setMessage({ type: 'error', text: 'Failed to save settings to local database.' });
         }
     };
 
-    if (loading) return <div className="text-white p-8">Loading settings text-sm...</div>;
-    if (!config) return <div className="text-red-500 p-8 text-sm">Failed to load configuration.</div>;
+    if (!settings || !config) return <div className="text-white p-8">Loading settings...</div>;
 
     const updateLabel = (axis: 'xAxis' | 'yAxis', value: string) => {
         setConfig(prev => prev ? ({

@@ -3,391 +3,188 @@
 import { TamboProvider, defineTool, currentPageContextHelper, currentTimeContextHelper } from "@tambo-ai/react";
 import { z } from "zod";
 import { TamboChatPopup } from "./TamboChatPopup";
-
-const tools = [
-    defineTool({
-        name: "updateStudentScore",
-        description: "Update benchmark or STAAR scores for a specific student using their Local ID.",
-        tool: async ({ localId, benchmarkScore, staarScore }) => {
-            try {
-                const response = await fetch('/api/missing-data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        localId,
-                        benchmarkScore,
-                        staarScore
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    return { success: true, message: `Successfully updated scores for student ${localId}` };
-                } else {
-                    return { success: false, message: `Failed to update scores: ${data.message || 'Unknown error'}` };
-                }
-            } catch (error) {
-                return { success: false, message: `Error updating scores: ${error instanceof Error ? error.message : String(error)}` };
-            }
-        },
-        inputSchema: z.object({
-            localId: z.string().describe("The Local ID of the student (e.g., '423390')"),
-            benchmarkScore: z.number().optional().describe("The new benchmark score (0-100)"),
-            staarScore: z.number().optional().describe("The new STAAR score (0-100)"),
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "manipulateTable",
-        description: "Control sorting, filtering, and grouping in the Missing Data tables.",
-        tool: async ({ sortBy, sortOrder, filters, groupBy }) => {
-            // Convert array of filter objects back to a record for the component
-            const filtersRecord = filters?.reduce((acc, { column, value }) => {
-                acc[column] = value;
-                return acc;
-            }, {} as Record<string, string>);
-
-            window.dispatchEvent(new CustomEvent('tambo-action', {
-                detail: {
-                    component: 'MissingData',
-                    action: 'update',
-                    config: { sortBy, sortOrder, filters: filtersRecord, groupBy }
-                }
-            }));
-            return { success: true, message: "Table updated successfully" };
-        },
-        inputSchema: z.object({
-            sortBy: z.string().optional().describe("Column to sort by (e.g., 'Last Name', 'First Name', 'Grade', 'teacher', 'Local Id'). Use this for ordering within a view."),
-            sortOrder: z.enum(['asc', 'desc']).optional().describe("Sort direction"),
-            filters: z.array(z.object({
-                column: z.string().describe("Column name to filter (e.g., 'Grade', 'teacher')"),
-                value: z.string().describe("Value to filter for (case-insensitive contains)")
-            })).optional().describe("List of filters to apply"),
-            groupBy: z.string().optional().describe("Column to group by (e.g., 'teacher', 'Grade'). Use this when the user wants to 'see students by' a certain category, as it creates separate visual sections."),
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "updateDashboardFilters",
-        description: "Update the main dashboard matrix filters (Subject, Grade, Teacher, Assessment).",
-        tool: async (config) => {
-            window.dispatchEvent(new CustomEvent('tambo-action', {
-                detail: { component: 'PerformanceMatrix', action: 'update', config }
-            }));
-            return { success: true, message: "Dashboard filters updated successfully" };
-        },
-        inputSchema: z.object({
-            subject: z.enum(['math', 'rla', 'campus']).optional().describe("The subject to view"),
-            version: z.enum(['fall', 'spring', 'spring-algebra']).optional().describe("The assessment version"),
-            grade: z.string().optional().describe("Grade level (e.g., '7', '8') or 'all'"),
-            teacher: z.string().optional().describe("Teacher name or 'all'"),
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "updateThresholds",
-        description: "Update the score limits (min/max) for performance levels (Did Not Meet, Meets, Masters, etc) or axis labels.",
-        tool: async (newConfig) => {
-            try {
-                // First get current config to merge
-                const currentRes = await fetch('/api/settings');
-                const currentConfig = await currentRes.json();
-
-                const updatedConfig = { ...currentConfig };
-
-                // Update thresholds if provided
-                if (newConfig.thresholds) {
-                    if (newConfig.thresholds.math) {
-                        updatedConfig.thresholds.math = {
-                            ...updatedConfig.thresholds.math,
-                            ...newConfig.thresholds.math
-                        };
-                    }
-                    if (newConfig.thresholds.rla) {
-                        updatedConfig.thresholds.rla = {
-                            ...updatedConfig.thresholds.rla,
-                            ...newConfig.thresholds.rla
-                        };
-                    }
-                }
-
-                // Update labels if provided
-                if (newConfig.labels) {
-                    updatedConfig.labels = {
-                        ...updatedConfig.labels,
-                        ...newConfig.labels
-                    };
-                }
-
-                const response = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                });
-
-                if (response.ok) {
-                    // Trigger a refresh event instead of a hard reload
-                    window.dispatchEvent(new CustomEvent('tambo-action', {
-                        detail: { action: 'refresh' }
-                    }));
-                    return { success: true, message: "Configuration updated successfully. Dashboard refreshing..." };
-                } else {
-                    return { success: false, message: "Failed to save configuration" };
-                }
-            } catch (error) {
-                return { success: false, message: `Error: ${error}` };
-            }
-        },
-        inputSchema: z.object({
-            thresholds: z.object({
-                math: z.object({
-                    previous: z.array(z.object({
-                        label: z.string(),
-                        min: z.number(),
-                        max: z.number(),
-                        color: z.string().optional()
-                    })).optional(),
-                    current: z.array(z.object({
-                        label: z.string(),
-                        min: z.number(),
-                        max: z.number(),
-                        color: z.string().optional()
-                    })).optional()
-                }).optional(),
-                rla: z.object({
-                    previous: z.array(z.object({
-                        label: z.string(),
-                        min: z.number(),
-                        max: z.number(),
-                        color: z.string().optional()
-                    })).optional(),
-                    current: z.array(z.object({
-                        label: z.string(),
-                        min: z.number(),
-                        max: z.number(),
-                        color: z.string().optional()
-                    })).optional()
-                }).optional(),
-            }).optional(),
-            labels: z.object({
-                xAxis: z.string().optional(),
-                yAxis: z.string().optional()
-            }).optional()
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "resetView",
-        description: "Reset all table and dashboard filters to their default states.",
-        tool: async () => {
-            window.dispatchEvent(new CustomEvent('tambo-action', {
-                detail: { component: 'MissingData', action: 'reset' }
-            }));
-            window.dispatchEvent(new CustomEvent('tambo-action', {
-                detail: { component: 'PerformanceMatrix', action: 'update', config: { subject: 'campus', version: 'spring-algebra', grade: 'all', teacher: 'all' } }
-            }));
-            return { success: true, message: "View reset successfully" };
-        },
-        inputSchema: z.object({}),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "navigateTo",
-        description: "Navigate to a different page. Use '/missing' for the Missing Scorse/Student List, and '/' for the main Dashboard.",
-        tool: async ({ path }) => {
-            window.location.href = path;
-            return { success: true, message: `Navigating to ${path}` };
-        },
-        inputSchema: z.object({
-            path: z.string().describe("The path to navigate to (e.g., '/', '/missing')"),
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "importPreviousPerformance",
-        description: "Import 'Previous Performance' scores for a list of students. Use this when the user pastes data like '[ID] [First Name] [Last Name] [Score]' or just '[ID] [Score]'. This writes to a dedicated table.",
-        tool: async ({ students }) => {
-            try {
-                const response = await fetch('/api/bulk-import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'previous_performance',
-                        students
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.dispatchEvent(new CustomEvent('tambo-action', {
-                        detail: { action: 'refresh' }
-                    }));
-                    return { success: true, message: data.message };
-                } else {
-                    return { success: false, message: data.message || 'Failed to import scores' };
-                }
-            } catch (error) {
-                return { success: false, message: `Error importing scores: ${error instanceof Error ? error.message : String(error)}` };
-            }
-        },
-        inputSchema: z.object({
-            students: z.array(z.object({
-                localId: z.string().describe("Local ID of student"),
-                firstName: z.string().optional().describe("First Name"),
-                lastName: z.string().optional().describe("Last Name"),
-                score: z.number().describe("The previous performance score (0-100)"),
-                subject: z.enum(['math', 'rla']).optional().describe("Subject if known"),
-            }))
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "importFallPerformance",
-        description: "Import 'Fall' scores for a list of students. Use this when the user pastes data like '[ID] [First Name] [Last Name] [Score]' or just '[ID] [Score]' and mentions 'Fall'. This writes to a dedicated table.",
-        tool: async ({ students }) => {
-            try {
-                const response = await fetch('/api/bulk-import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'fall_performance',
-                        students
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.dispatchEvent(new CustomEvent('tambo-action', {
-                        detail: { action: 'refresh' }
-                    }));
-                    return { success: true, message: data.message };
-                } else {
-                    return { success: false, message: data.message || 'Failed to import scores' };
-                }
-            } catch (error) {
-                return { success: false, message: `Error importing scores: ${error instanceof Error ? error.message : String(error)}` };
-            }
-        },
-        inputSchema: z.object({
-            students: z.array(z.object({
-                localId: z.string().describe("Local ID of student"),
-                firstName: z.string().optional().describe("First Name"),
-                lastName: z.string().optional().describe("Last Name"),
-                score: z.number().describe("The fall performance score (0-100)"),
-                subject: z.enum(['math', 'rla']).optional().describe("Subject if known"),
-            }))
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "bulkImportStudents",
-        description: "Import or update multiple student records at once. IMPORTANT: You must parse the user's data into an array of OBJECTS matching the schema. DO NOT send comma-separated strings. Missing fields should be omitted or set to null.",
-        tool: async ({ subject, students }) => {
-            try {
-                const response = await fetch('/api/bulk-import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subject, students })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.dispatchEvent(new CustomEvent('tambo-action', {
-                        detail: { action: 'refresh' }
-                    }));
-                    return { success: true, message: data.message };
-                } else {
-                    return { success: false, message: data.message || 'Failed to bulk import students' };
-                }
-            } catch (error) {
-                return { success: false, message: `Error importing students: ${error instanceof Error ? error.message : String(error)}` };
-            }
-        },
-        inputSchema: z.object({
-            subject: z.enum(['math', 'rla']).describe("The subject of the data being imported"),
-            students: z.array(z.object({
-                localId: z.string().describe("Local ID of student"),
-                firstName: z.string().optional(),
-                lastName: z.string().optional(),
-                grade: z.string().optional(),
-                campus: z.string().optional(),
-                teacher: z.string().optional(),
-                staarScore: z.number().optional().describe("Previous performance score (0-100)"),
-                benchmarkScore: z.number().optional().describe("Current benchmark score (0-100)")
-            }))
-        }),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-    defineTool({
-        name: "clearStudentData",
-        description: "Wipe all placeholder student data from the dashboard to prepare for real data import. WARNING: This action is destructive and will remove all student scores and details.",
-        tool: async () => {
-            try {
-                const response = await fetch('/api/clear-data', {
-                    method: 'POST',
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.dispatchEvent(new CustomEvent('tambo-action', {
-                        detail: { action: 'refresh' }
-                    }));
-                    return { success: true, message: data.message };
-                } else {
-                    return { success: false, message: data.message || 'Failed to clear data' };
-                }
-            } catch (error) {
-                return { success: false, message: `Error clearing data: ${error instanceof Error ? error.message : String(error)}` };
-            }
-        },
-        inputSchema: z.object({}),
-        outputSchema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-        }),
-    }),
-];
+import { db, Student, DEFAULT_THRESHOLDS } from "@/lib/db";
+import { useLiveQuery } from "dexie-react-hooks";
 
 export default function TamboWrapper({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    // We prioritize the BYOK key, fallback to env var (which might be empty in static export)
+    // Note: TamboProvider typically expects a Tambo Platform Key or specific config. 
+    // If the user means OpenAI/Anthropic keys for a direct client, adaptation might be needed depending on the SDK version.
+    // Assuming standard Tambo behavior where apiKey is the Tambo Project Key.
+    const apiKey = process.env.NEXT_PUBLIC_TAMBO_API_KEY || '';
+
+    // Define tools inside the component to access 'db' context if needed (though db is global)
+    // We recreate the tool array, or memoize it.
+    const tools = [
+        defineTool({
+            name: "updateStudentScore",
+            description: "Update benchmark or STAAR scores for a specific student using their Local ID.",
+            tool: async ({ localId, benchmarkScore, staarScore }) => {
+                try {
+                    const student = await db.students.where('LocalId').equals(localId).first();
+                    if (!student || !student.id) {
+                        return { success: false, message: `Student with ID ${localId} not found.` };
+                    }
+
+                    const updates: Partial<Student> = {};
+                    if (benchmarkScore !== undefined) {
+                        updates.SpringScore = benchmarkScore; // Assuming Spring as default benchmark context
+                        // Could update levels here too if we imported the logic
+                    }
+                    if (staarScore !== undefined) {
+                        updates.StaarScore = staarScore;
+                    }
+
+                    await db.students.update(student.id, updates);
+                    return { success: true, message: `Successfully updated scores for student ${localId}` };
+                } catch (error) {
+                    return { success: false, message: `Error updating scores: ${error}` };
+                }
+            },
+            inputSchema: z.object({
+                localId: z.string(),
+                benchmarkScore: z.number().optional(),
+                staarScore: z.number().optional(),
+            }),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+        defineTool({
+            name: "manipulateTable",
+            description: "Control sorting, filtering, and grouping in the Missing Data tables.",
+            tool: async ({ sortBy, sortOrder, filters, groupBy }) => {
+                const filtersRecord = filters?.reduce((acc, { column, value }) => {
+                    acc[column] = value;
+                    return acc;
+                }, {} as Record<string, string>);
+
+                window.dispatchEvent(new CustomEvent('tambo-action', {
+                    detail: {
+                        component: 'MissingData',
+                        action: 'update',
+                        config: { sortBy, sortOrder, filters: filtersRecord, groupBy }
+                    }
+                }));
+                return { success: true, message: "Table updated successfully" };
+            },
+            inputSchema: z.object({
+                sortBy: z.string().optional(),
+                sortOrder: z.enum(['asc', 'desc']).optional(),
+                filters: z.array(z.object({ column: z.string(), value: z.string() })).optional(),
+                groupBy: z.string().optional(),
+            }),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+        defineTool({
+            name: "updateDashboardFilters",
+            description: "Update the main dashboard matrix filters (Subject, Grade, Teacher, Assessment).",
+            tool: async (config) => {
+                window.dispatchEvent(new CustomEvent('tambo-action', {
+                    detail: { component: 'PerformanceMatrix', action: 'update', config }
+                }));
+                return { success: true, message: "Dashboard filters updated successfully" };
+            },
+            inputSchema: z.object({
+                subject: z.enum(['math', 'rla', 'campus']).optional(),
+                version: z.enum(['fall', 'spring', 'spring-algebra']).optional(),
+                grade: z.string().optional(),
+                teacher: z.string().optional(),
+            }),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+        defineTool({
+            name: "updateThresholds",
+            description: "Update the score limits or axis labels.",
+            tool: async (newConfig) => {
+                try {
+                    await db.transaction('rw', db.settings, async () => {
+                        const currentLabels = (await db.settings.get('labels'))?.value || {};
+                        const currentThresholds = (await db.settings.get('thresholds'))?.value || DEFAULT_THRESHOLDS;
+
+                        if (newConfig.labels) {
+                            await db.settings.put({ id: 'labels', value: { ...currentLabels, ...newConfig.labels } });
+                        }
+                        if (newConfig.thresholds) {
+                            // Deep merge logic simplified for brevity - usually full object replace is safer for tools
+                            // But let's assume partial
+                            const mergedThresholds = { ...currentThresholds, ...newConfig.thresholds };
+                            await db.settings.put({ id: 'thresholds', value: mergedThresholds });
+                        }
+                    });
+
+                    window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
+                    return { success: true, message: "Configuration updated successfully." };
+                } catch (error) {
+                    return { success: false, message: `Error: ${error}` };
+                }
+            },
+            inputSchema: z.object({
+                thresholds: z.any().optional(),
+                labels: z.object({ xAxis: z.string().optional(), yAxis: z.string().optional() }).optional()
+            }),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+        defineTool({
+            name: "bulkImportStudents",
+            description: "Import or update multiple student records at once.",
+            tool: async ({ students }) => {
+                try {
+                    let count = 0;
+                    await db.transaction('rw', db.students, async () => {
+                        for (const s of students) {
+                            const existing = await db.students.where('LocalId').equals(s.LocalId).first();
+                            if (existing?.id) {
+                                await db.students.update(existing.id, s);
+                            } else {
+                                await db.students.add(s as Student);
+                            }
+                            count++;
+                        }
+                    });
+
+                    window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
+                    return { success: true, message: `Successfully imported ${count} students.` };
+                } catch (error) {
+                    return { success: false, message: `Error importing: ${error}` };
+                }
+            },
+            inputSchema: z.object({
+                students: z.array(z.object({
+                    LocalId: z.string(),
+                    FirstName: z.string().optional(),
+                    LastName: z.string().optional(),
+                    Grade: z.string().optional(),
+                    Teacher: z.string().optional(),
+                    StaarScore: z.number().optional(),
+                    SpringScore: z.number().optional(),
+                    FallScore: z.number().optional()
+                }))
+            }),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+        defineTool({
+            name: "clearStudentData",
+            description: "Wipe all student data from the database.",
+            tool: async () => {
+                try {
+                    await db.students.clear();
+                    window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
+                    return { success: true, message: "All student data cleared." };
+                } catch (error) {
+                    return { success: false, message: `Error: ${error}` };
+                }
+            },
+            inputSchema: z.object({}),
+            outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+        }),
+    ];
+
     return (
         <TamboProvider
-            apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY || ''}
+            apiKey={apiKey}
             tools={tools}
             contextHelpers={{
                 currentPage: currentPageContextHelper,
