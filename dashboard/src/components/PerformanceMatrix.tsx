@@ -163,8 +163,8 @@ const PerformanceMatrix = () => {
   }, [config, selectedSubject]);
 
   const finalPreviousLevels = useMemo(() => {
-    // Y-Axis: High to Low (Top to Bottom)
-    const sorted = [...(subjectConfig?.previous || [])].sort((a: Threshold, b: Threshold) => b.min - a.min);
+    // Y-Axis: Low to High (Top to Bottom) to match X-Axis
+    const sorted = [...(subjectConfig?.previous || [])].sort((a: Threshold, b: Threshold) => a.min - b.min);
     return sorted.length > 0 ? sorted.map((t: Threshold) => t.label) : ['Masters', 'Meets', 'Approaches', 'Did Not Meet'];
   }, [subjectConfig]);
 
