@@ -134,7 +134,22 @@ export default function TamboWrapper({
                 try {
                     let count = 0;
                     await db.transaction('rw', db.students, async () => {
-                        for (const s of students) {
+                        for (let s of students) {
+                            // Defensive parsing: LLM sometimes sends double-encoded JSON strings
+                            if (typeof s === 'string') {
+                                try {
+                                    s = JSON.parse(s);
+                                } catch (e) {
+                                    console.error("Failed to parse student record:", s);
+                                    continue;
+                                }
+                            }
+
+                            if (!s || !s.LocalId) {
+                                console.warn("Skipping invalid student record (missing LocalId):", s);
+                                continue;
+                            }
+
                             const existing = await db.students.where('LocalId').equals(s.LocalId).first();
                             if (existing?.id) {
                                 await db.students.update(existing.id, s);
