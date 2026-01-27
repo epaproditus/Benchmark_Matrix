@@ -515,44 +515,11 @@ const PerformanceMatrix = () => {
 
   return (
     <div className="p-4">
-      <div className="mb-4 bg-black text-white p-4 rounded">
-        <div className="flex justify-between items-end">
-          <div className="flex gap-4">
-            {/* Subject selector could go here if needed, but it's currently managed via Tambo actions */}
-          </div>
-
-          <div className="flex items-center">
-            <label htmlFor="search" className="mr-2 text-sm font-bold">Search:</label>
-            <input
-              type="text"
-              id="search"
-              placeholder="Name or ID"
-              onChange={async (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                // Clear results if search is too short or empty
-                if (searchTerm.length < 2) {
-                  setSearchResults([]);
-                  return;
-                }
-
-                // Local Search
-                const found = students.filter(s =>
-                  (s.FirstName + ' ' + s.LastName).toLowerCase().includes(searchTerm) ||
-                  s.LocalId.includes(searchTerm)
-                );
-                setSearchResults(found);
-              }}
-              className="bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:border-white outline-none w-48"
-            />
-          </div>
-          {!hasTeacherData && selectedGrade && (
-            <div className="text-gray-500 text-sm mt-1">
-              No teacher data available for selected grade
-            </div>
-          )}
+      {!hasTeacherData && selectedGrade && (
+        <div className="mb-4 bg-red-900/20 text-red-400 p-3 rounded-xl border border-red-900/50 text-center text-sm">
+          No teacher data available for selected grade
         </div>
-
-      </div>
+      )}
 
 
 
@@ -648,28 +615,59 @@ const PerformanceMatrix = () => {
           </div>
         </div>
 
-        {/* Dynamic Fall/Spring Toggle */}
-        <div className="flex flex-col items-center gap-3 py-4">
-          <span className="text-xs font-bold uppercase tracking-widest opacity-50">Select Assessment</span>
-          <div className="bg-black p-1 rounded-full border border-white/10 flex shadow-inner">
-            <button
-              onClick={() => setSelectedVersion('fall')}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion === 'fall'
-                ? 'bg-white text-black shadow-lg scale-105'
-                : 'text-white/50 hover:text-white'
-                }`}
-            >
-              Fall
-            </button>
-            <button
-              onClick={() => setSelectedVersion('spring-algebra')}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-200 ${selectedVersion !== 'fall'
-                ? 'bg-white text-black shadow-lg scale-105'
-                : 'text-white/50 hover:text-white'
-                }`}
-            >
-              Spring
-            </button>
+        {/* Dynamic Fall/Spring Toggle + Search */}
+        <div className="flex flex-col items-center gap-4 py-4 min-w-[280px]">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Select Assessment</span>
+            <div className="bg-black p-1.5 rounded-full border border-white/10 flex shadow-2xl">
+              <button
+                onClick={() => setSelectedVersion('fall')}
+                className={`px-8 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedVersion === 'fall'
+                  ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)] scale-105'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                Fall
+              </button>
+              <button
+                onClick={() => setSelectedVersion('spring-algebra')}
+                className={`px-8 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedVersion !== 'fall'
+                  ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)] scale-105'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                Spring
+              </button>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          <div className="flex flex-col items-center gap-2 w-full">
+            <div className="relative w-full group">
+              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none opacity-40 group-focus-within:opacity-100 transition-opacity">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search Student Name or ID..."
+                onChange={async (e) => {
+                  const searchTerm = e.target.value.toLowerCase();
+                  if (searchTerm.length < 2) {
+                    setSearchResults([]);
+                    return;
+                  }
+                  const found = students.filter(s =>
+                    (s.FirstName + ' ' + s.LastName).toLowerCase().includes(searchTerm) ||
+                    s.LocalId.includes(searchTerm)
+                  );
+                  setSearchResults(found);
+                }}
+                className="w-full bg-black/50 text-white border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-sm focus:border-white/40 focus:bg-black transition-all outline-none placeholder:text-white/20"
+              />
+            </div>
           </div>
         </div>
 
