@@ -115,6 +115,8 @@ const PerformanceMatrix = () => {
   const [studentAssessments, setStudentAssessments] = useState<{ [key: string]: Assessment[] }>({});
   const [showAssessments, setShowAssessments] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
+  const [editingThreshold, setEditingThreshold] = useState<{ type: 'previous' | 'current', label: string } | null>(null);
+  const [tempThreshold, setTempThreshold] = useState<{ min: number, max: number }>({ min: 0, max: 0 });
 
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
@@ -409,6 +411,27 @@ const PerformanceMatrix = () => {
     }
   };
 
+  const saveThreshold = async (type: 'current' | 'previous', label: string, min: number, max: number) => {
+    try {
+      const subjectKey = (selectedSubject === 'rla' ? 'rla' : 'math') as 'math' | 'rla';
+      const currentThresholds = config.thresholds as any;
+      const updatedThresholds = { ...currentThresholds };
+
+      const list = [...(updatedThresholds[subjectKey][type] || [])];
+      const index = list.findIndex(t => t.label === label);
+
+      if (index !== -1) {
+        list[index] = { ...list[index], min, max };
+        updatedThresholds[subjectKey][type] = list;
+
+        await db.settings.put({ id: 'thresholds', value: updatedThresholds });
+        setEditingThreshold(null);
+      }
+    } catch (err) {
+      console.error('Error saving threshold:', err);
+    }
+  };
+
 
   if (!isMounted) return null;
 
@@ -417,14 +440,71 @@ const PerformanceMatrix = () => {
   }
 
   const getThresholdLabel = (label: string, type: 'current' | 'previous') => {
+    const isEditing = editingThreshold?.type === type && editingThreshold?.label === label;
     const thresholds = type === 'previous' ? subjectConfig?.previous : subjectConfig?.current;
+    const t = thresholds?.find((t: Threshold) => t.label === label);
+
+    if (isEditing) {
+      return (
+        <div className="flex flex-col gap-1 p-1 bg-white/10 rounded shadow-inner" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[10px] uppercase font-bold opacity-50">{label}</span>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              value={tempThreshold.min}
+              autoFocus
+              className="w-12 bg-black text-white border border-white/20 rounded px-1 text-xs focus:border-green-500 outline-none"
+              onChange={(e) => setTempThreshold({ ...tempThreshold, min: parseInt(e.target.value) || 0 })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveThreshold(type, label, tempThreshold.min, tempThreshold.max);
+                if (e.key === 'Escape') setEditingThreshold(null);
+              }}
+            />
+            <span className="opacity-50 text-xs">-</span>
+            <input
+              type="number"
+              value={tempThreshold.max}
+              className="w-12 bg-black text-white border border-white/20 rounded px-1 text-xs focus:border-green-500 outline-none"
+              onChange={(e) => setTempThreshold({ ...tempThreshold, max: parseInt(e.target.value) || 0 })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveThreshold(type, label, tempThreshold.min, tempThreshold.max);
+                if (e.key === 'Escape') setEditingThreshold(null);
+              }}
+            />
+          </div>
+          <div className="flex gap-1 mt-1">
+            <button
+              onClick={() => saveThreshold(type, label, tempThreshold.min, tempThreshold.max)}
+              className="px-2 py-0.5 bg-green-600 text-[10px] rounded hover:bg-green-500"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setEditingThreshold(null)}
+              className="px-2 py-0.5 bg-zinc-700 text-[10px] rounded hover:bg-zinc-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (thresholds) {
-      const t = thresholds.find((t: Threshold) => t.label === label);
       // Only show range if min/max are numbers
       if (t && typeof t.min === 'number' && typeof t.max === 'number') {
         return (
-          <div className="flex flex-col">
-            <span>{label}</span>
+          <div
+            className="flex flex-col cursor-pointer hover:bg-white/5 p-1 rounded transition-colors group"
+            onClick={() => {
+              setEditingThreshold({ type, label });
+              setTempThreshold({ min: t.min, max: t.max });
+            }}
+          >
+            <div className="flex justify-between items-center">
+              <span>{label}</span>
+              <span className="opacity-0 group-hover:opacity-100 text-[10px]">✎</span>
+            </div>
             <span className="text-xs opacity-75 font-normal">({t.min}-{t.max})</span>
           </div>
         );
