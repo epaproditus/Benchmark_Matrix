@@ -337,8 +337,9 @@ const PerformanceMatrix = () => {
     if (benchmarkIdx > staarIdx) return 'bg-green-200 text-green-800';
 
     // Maintenance (Diagonal)
-    if (staarLevel === 'Did Not Meet' || staarLevel === 'Did Not Meet Low') return 'bg-black text-gray-500';
-    if (staarLevel === 'Approaches' || staarLevel.includes('Approaches')) return 'bg-blue-200 text-blue-800';
+    if (staarLevel === 'Low Did Not Meet' || staarLevel === 'Did Not Meet') return 'bg-black text-gray-500';
+    // High DNM, Low Approaches, High Approaches maintenance all get Blue (0.5)
+    if (staarLevel.includes('High Did Not Meet') || staarLevel.includes('Approaches')) return 'bg-blue-200 text-blue-800';
     return 'bg-green-200 text-green-800'; // Meets/Masters maintenance is 1.0 (Green)
   };
 
@@ -391,8 +392,8 @@ const PerformanceMatrix = () => {
         // Maintenance: Level-specific
         else if (staarIdx === benchmarkIdx) {
           const level = cell.staar_level;
-          if (level === 'Did Not Meet') multiplier = 0;
-          else if (level.includes('Approaches')) multiplier = 0.5;
+          if (level === 'Low Did Not Meet' || level === 'Did Not Meet') multiplier = 0;
+          else if (level.includes('High Did Not Meet') || level.includes('Approaches')) multiplier = 0.5;
           else multiplier = 1.0; // Meets and Masters maintenance is 1.0
         }
         // Regression: 0 points
