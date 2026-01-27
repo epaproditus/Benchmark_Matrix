@@ -158,7 +158,7 @@ export default function TamboWrapper({
                             if (source.staarScore !== undefined) normalizedStudent.StaarScore = source.staarScore;
                             if (source.springScore !== undefined) normalizedStudent.SpringScore = source.springScore;
                             if (source.fallScore !== undefined) normalizedStudent.FallScore = source.fallScore;
-                            if (source.benchmarkScore !== undefined) normalizedStudent.SpringScore = source.benchmarkScore; // Alias
+                            if (source.benchmarkScore !== undefined) normalizedStudent.FallScore = source.benchmarkScore; // Alias to FallScore by default if ambiguous
 
                             // Ensure core fields are present if missing
                             if (!normalizedStudent.StaarScore && source.StaarScore) normalizedStudent.StaarScore = source.StaarScore;
