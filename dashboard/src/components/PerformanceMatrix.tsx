@@ -322,33 +322,24 @@ const PerformanceMatrix = () => {
     ) || { staar_level: staarLevel, benchmark_level: benchmarkLevel, student_count: 0, group_number: 0 };
   };
 
-  const getCellColor = (groupNumber: number, value: number): string => {
+  const getCellColor = (staarLevel: string, benchmarkLevel: string, value: number): string => {
     if (value === 0) return 'bg-black text-gray-500';
 
-    if (selectedSubject === 'rla') {
-      // Red cells - No Growth / Regression (Using the list that was previously Green)
-      if ([1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(groupNumber)) {
-        return 'bg-red-200 text-red-800';
-      }
-      // Blue cells - Moderate Growth
-      if ([15, 22, 29].includes(groupNumber)) {
-        return 'bg-blue-200 text-blue-800';
-      }
-      // Green cells - Expected/Accelerated Growth (Using the list that was previously Red)
-      // Masters->Masters (36) is here now.
-      return 'bg-green-200 text-green-800';
-    } else {
-      // Existing math color logic - Swapping Red/Green lists
-      // Former Green list becomes Red (1, 7, 8...)
-      if ([1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(groupNumber)) {
-        return 'bg-red-200 text-red-800';
-      }
-      if ([29, 22, 15].includes(groupNumber)) {
-        return 'bg-blue-200 text-blue-800';
-      }
-      // Former Red list becomes Green (36, 30...)
-      return 'bg-green-200 text-green-800';
-    }
+    const staarIdx = finalPreviousLevels.indexOf(staarLevel);
+    const benchmarkIdx = finalCurrentLevels.indexOf(benchmarkLevel);
+
+    if (staarIdx === -1 || benchmarkIdx === -1) return 'bg-black text-gray-500';
+
+    // Regression (Below Diagonal)
+    if (benchmarkIdx < staarIdx) return 'bg-red-200 text-red-800';
+
+    // Growth (Above Diagonal)
+    if (benchmarkIdx > staarIdx) return 'bg-green-200 text-green-800';
+
+    // Maintenance (Diagonal)
+    if (staarLevel === 'Did Not Meet' || staarLevel === 'Did Not Meet Low') return 'bg-black text-gray-500';
+    if (staarLevel === 'Approaches' || staarLevel.includes('Approaches')) return 'bg-blue-200 text-blue-800';
+    return 'bg-green-200 text-green-800'; // Meets/Masters maintenance is 1.0 (Green)
   };
 
   const getGradeColor = (score: number): string => {
@@ -379,39 +370,38 @@ const PerformanceMatrix = () => {
     return total;
   };
 
-  // Add helper function for points calculation
-  // Wrap calculation in a safe accessor
+  // Logic updated to match TEA matrix orientation-agnostically
   const calculateTotalPoints = () => {
     try {
       if (!matrixData || !Array.isArray(matrixData)) return 0;
 
-      if (selectedSubject === 'rla') {
-        const pointsMap = {
-          base: matrixData
-            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 1.0,
-          half: matrixData
-            .filter(d => d && [15, 22, 29].includes(d.group_number))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.5,
-          quarter: matrixData
-            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High', 'Did Not Meet'].includes(d.staar_level))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.25
-        };
-        return pointsMap.base + pointsMap.half + pointsMap.quarter;
-      } else {
-        const pointsMap = {
-          base: matrixData
-            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 1.0,
-          half: matrixData
-            .filter(d => d && [29, 22, 15].includes(d.group_number))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.5,
-          quarter: matrixData
-            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-            .reduce((sum: number, d: CellData) => sum + (Number(d.student_count) || 0), 0) * 0.25
-        };
-        return pointsMap.base + pointsMap.half + pointsMap.quarter;
-      }
+      return matrixData.reduce((totalPoints, cell) => {
+        const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
+        const benchmarkIdx = finalCurrentLevels.indexOf(cell.benchmark_level);
+        const count = Number(cell.student_count) || 0;
+
+        if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return totalPoints;
+
+        let multiplier = 0;
+
+        // Growth: 1.0 point
+        if (benchmarkIdx > staarIdx) {
+          multiplier = 1.0;
+        }
+        // Maintenance: Level-specific
+        else if (staarIdx === benchmarkIdx) {
+          const level = cell.staar_level;
+          if (level === 'Did Not Meet') multiplier = 0;
+          else if (level.includes('Approaches')) multiplier = 0.5;
+          else multiplier = 1.0; // Meets and Masters maintenance is 1.0
+        }
+        // Regression: 0 points
+        else {
+          multiplier = 0;
+        }
+
+        return totalPoints + (count * multiplier);
+      }, 0);
     } catch (err) {
       console.error('Error calculating total points:', err);
       return 0;
@@ -500,9 +490,7 @@ const PerformanceMatrix = () => {
               const groupNumber = getGroupNumber(staarLevel, benchmarkLevel);
 
               // Get the math color class
-              const mathColorClass = groupNumber ?
-                getCellColor(groupNumber, 1) :
-                'bg-gray-900';
+              const mathColorClass = getCellColor(staarLevel, benchmarkLevel, 1);
 
               return (
                 <div key={index}
@@ -658,9 +646,7 @@ const PerformanceMatrix = () => {
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {selectedStudents.map((student, index) => {
-                  const mathColorClass = selectedCell.group_number ?
-                    getCellColor(selectedCell.group_number, 1) :
-                    'bg-gray-900';
+                  const mathColorClass = getCellColor(selectedCell.staar_level, selectedCell.benchmark_level, 1);
 
                   return (
                     <div key={index}
@@ -730,7 +716,7 @@ const PerformanceMatrix = () => {
                     return (
                       <td
                         key={colIndex}
-                        className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(cellData.group_number, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
+                        className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(staarLevel, benchmarkLevel, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
                         onClick={() => {
                           if (selectedSubject !== 'campus') {
                             setSelectedCell(cellData);
@@ -806,7 +792,7 @@ const PerformanceMatrix = () => {
                   return (
                     <td
                       key={colIndex}
-                      className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(cellData.group_number, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
+                      className={`border p-2 text-center ${selectedSubject === 'campus' ? '' : 'cursor-pointer'} ${getCellColor(staarLevel, benchmarkLevel, cellData.student_count)} ${selectedSubject === 'campus' ? '' : 'hover:opacity-75'}`}
                       onClick={() => {
                         if (selectedSubject !== 'campus') {
                           setSelectedCell(cellData);
@@ -844,8 +830,11 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(d.group_number))
-                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return bIdx < sIdx || (sIdx === bIdx && (d.staar_level === 'Did Not Meet' || d.staar_level === 'Did Not Meet Low'));
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -853,25 +842,37 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return sIdx === bIdx && d.staar_level.includes('Approaches');
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                    {(matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return sIdx === bIdx && d.staar_level.includes('Approaches');
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5).toFixed(1)}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0).toFixed(1)}
+                    {(matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -882,10 +883,16 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
                     {(
-                      matrixData.filter(d => [29, 22, 15].includes(d.group_number))
-                        .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                        .reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
+                      matrixData.filter(d => {
+                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                        return sIdx === bIdx && d.staar_level.includes('Approaches');
+                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5 +
+                      matrixData.filter(d => {
+                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                        return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
+                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
                     ).toFixed(1)}
                   </td>
                 </tr>
@@ -908,10 +915,12 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d =>
-                      [36, 35, 30, 29].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      // Regression or Maintenance at DNM
+                      return d.staar_level.includes('Did Not Meet') && (bIdx < sIdx || (sIdx === bIdx && d.staar_level === 'Did Not Meet Low'));
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -919,15 +928,20 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.25 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d =>
-                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      // Growth from DNM
+                      return d.staar_level.includes('Did Not Meet') && bIdx > sIdx;
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d =>
-                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25).toFixed(1)}
+                    {(matrixData.filter(d => {
+                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                      return d.staar_level.includes('Did Not Meet') && bIdx > sIdx;
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25).toFixed(1)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -940,10 +954,11 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
                     {(
-                      matrixData.filter(d =>
-                        [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-                        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                      ).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25
+                      matrixData.filter(d => {
+                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                        return d.staar_level.includes('Did Not Meet') && bIdx > sIdx;
+                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25
                     ).toFixed(1)}
                   </td>
                 </tr>
