@@ -1,3 +1,5 @@
+'use client';
+
 import PerformanceSettings from '@/components/PerformanceSettings';
 import Link from 'next/link';
 import { CSVImport } from '@/components/CSVImport';
