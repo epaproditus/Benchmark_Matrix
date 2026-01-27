@@ -150,11 +150,26 @@ export default function TamboWrapper({
                                 continue;
                             }
 
-                            const existing = await db.students.where('LocalId').equals(s.LocalId).first();
+                            // Normalize keys to PascalCase to match DB schema
+                            const normalizedStudent: any = { ...s };
+                            const source = s as any;
+
+                            // Map common AI-generated casing to DB schema
+                            if (source.staarScore !== undefined) normalizedStudent.StaarScore = source.staarScore;
+                            if (source.springScore !== undefined) normalizedStudent.SpringScore = source.springScore;
+                            if (source.fallScore !== undefined) normalizedStudent.FallScore = source.fallScore;
+                            if (source.benchmarkScore !== undefined) normalizedStudent.SpringScore = source.benchmarkScore; // Alias
+
+                            // Ensure core fields are present if missing
+                            if (!normalizedStudent.StaarScore && source.StaarScore) normalizedStudent.StaarScore = source.StaarScore;
+                            if (!normalizedStudent.SpringScore && source.SpringScore) normalizedStudent.SpringScore = source.SpringScore;
+                            if (!normalizedStudent.FallScore && source.FallScore) normalizedStudent.FallScore = source.FallScore;
+
+                            const existing = await db.students.where('LocalId').equals(normalizedStudent.LocalId).first();
                             if (existing?.id) {
-                                await db.students.update(existing.id, s);
+                                await db.students.update(existing.id, normalizedStudent);
                             } else {
-                                await db.students.add(s as Student);
+                                await db.students.add(normalizedStudent as Student);
                             }
                             count++;
                         }
