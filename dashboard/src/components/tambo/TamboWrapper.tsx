@@ -97,33 +97,35 @@ export default function TamboWrapper({
         }),
         defineTool({
             name: "updateThresholds",
-            description: "Update the score limits or axis labels.",
-            tool: async (newConfig) => {
+            description: "Update the score limits (min/max) for a specific performance level (e.g., 'Masters', 'High Approaches').",
+            tool: async ({ subject, type, label, min, max }) => {
                 try {
-                    await db.transaction('rw', db.settings, async () => {
-                        const currentLabels = (await db.settings.get('labels'))?.value || {};
-                        const currentThresholds = (await db.settings.get('thresholds'))?.value || DEFAULT_THRESHOLDS;
+                    const currentThresholds = (await db.settings.get('thresholds'))?.value || DEFAULT_THRESHOLDS;
+                    const updatedThresholds = { ...currentThresholds };
+                    const subjectKey = (subject === 'rla' ? 'rla' : 'math') as 'math' | 'rla';
 
-                        if (newConfig.labels) {
-                            await db.settings.put({ id: 'labels', value: { ...currentLabels, ...newConfig.labels } });
-                        }
-                        if (newConfig.thresholds) {
-                            // Deep merge logic simplified for brevity - usually full object replace is safer for tools
-                            // But let's assume partial
-                            const mergedThresholds = { ...currentThresholds, ...newConfig.thresholds };
-                            await db.settings.put({ id: 'thresholds', value: mergedThresholds });
-                        }
-                    });
+                    const list = [...(updatedThresholds[subjectKey][type] || [])];
+                    const index = list.findIndex((t: any) => t.label.toLowerCase() === label.toLowerCase());
 
-                    window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
-                    return { success: true, message: "Configuration updated successfully." };
+                    if (index !== -1) {
+                        if (min !== undefined) list[index].min = min;
+                        if (max !== undefined) list[index].max = max;
+                        updatedThresholds[subjectKey][type] = list;
+                        await db.settings.put({ id: 'thresholds', value: updatedThresholds });
+                        window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
+                        return { success: true, message: `Updated ${label} to ${min}-${max} for ${subject} ${type}` };
+                    }
+                    return { success: false, message: `Level '${label}' not found.` };
                 } catch (error) {
                     return { success: false, message: `Error: ${error}` };
                 }
             },
             inputSchema: z.object({
-                thresholds: z.any().optional(),
-                labels: z.object({ xAxis: z.string().optional(), yAxis: z.string().optional() }).optional()
+                subject: z.enum(['math', 'rla']),
+                type: z.enum(['previous', 'current']),
+                label: z.string(),
+                min: z.number().optional(),
+                max: z.number().optional(),
             }),
             outputSchema: z.object({ success: z.boolean(), message: z.string() }),
         }),
