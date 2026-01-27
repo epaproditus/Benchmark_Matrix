@@ -98,7 +98,7 @@ export default function TamboWrapper({
         defineTool({
             name: "updateThresholds",
             description: "Update the score limits (min/max) for a specific performance level (e.g., 'Masters', 'High Approaches').",
-            tool: async ({ subject, type, label, min, max }) => {
+            tool: async ({ subject = 'math', type, label, min, max }) => {
                 try {
                     const currentThresholds = (await db.settings.get('thresholds'))?.value || DEFAULT_THRESHOLDS;
                     const updatedThresholds = { ...currentThresholds };
@@ -113,7 +113,7 @@ export default function TamboWrapper({
                         updatedThresholds[subjectKey][type] = list;
                         await db.settings.put({ id: 'thresholds', value: updatedThresholds });
                         window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
-                        return { success: true, message: `Updated ${label} to ${min}-${max} for ${subject} ${type}` };
+                        return { success: true, message: `Updated ${label} to ${min}-${max}` };
                     }
                     return { success: false, message: `Level '${label}' not found.` };
                 } catch (error) {
@@ -121,7 +121,7 @@ export default function TamboWrapper({
                 }
             },
             inputSchema: z.object({
-                subject: z.enum(['math', 'rla']),
+                subject: z.enum(['math', 'rla']).optional(),
                 type: z.enum(['previous', 'current']),
                 label: z.string(),
                 min: z.number().optional(),
