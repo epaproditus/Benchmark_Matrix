@@ -150,8 +150,11 @@ export default function TamboWrapper({
                                 continue;
                             }
 
+                            // Normalize LocalId (strip leading zeros) to handle AI inconsistency
+                            const normalizedLocalId = String(s.LocalId).replace(/^0+/, '') || '0';
+
                             // Normalize keys to PascalCase to match DB schema
-                            const normalizedStudent: any = { ...s };
+                            const normalizedStudent: any = { ...s, LocalId: normalizedLocalId };
                             const source = s as any;
 
                             // Map common AI-generated casing to DB schema
@@ -165,7 +168,7 @@ export default function TamboWrapper({
                             if (!normalizedStudent.SpringScore && source.SpringScore) normalizedStudent.SpringScore = source.SpringScore;
                             if (!normalizedStudent.FallScore && source.FallScore) normalizedStudent.FallScore = source.FallScore;
 
-                            const existing = await db.students.where('LocalId').equals(normalizedStudent.LocalId).first();
+                            const existing = await db.students.where('LocalId').equals(normalizedLocalId).first();
                             if (existing?.id) {
                                 await db.students.update(existing.id, normalizedStudent);
                             } else {
