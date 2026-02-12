@@ -96,7 +96,7 @@ export async function POST(request: Request) {
                 await connection.execute(query, [localId, firstName, lastName, score, subj]);
             }
 
-            await connection.end();
+            await connection.release();
             return NextResponse.json({
                 success: true,
                 message: `Successfully updated ${type === 'fall_performance' ? 'fall' : 'previous'} performance scores for ${students.length} students.`
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
             }
         }
 
-        await connection.end();
+        await connection.release();
 
         return NextResponse.json({
             success: true,

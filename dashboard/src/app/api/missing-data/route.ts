@@ -41,7 +41,7 @@ export async function GET() {
     const [missingBenchmark] = await connection.execute(missingBenchmarkQuery);
     const [missingStaar] = await connection.execute(missingStaarQuery);
 
-    await connection.end();
+    await connection.release();
 
     return NextResponse.json({
       missingBenchmark,
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     console.log('Update Query:', updateQuery, 'Params:', params); // Debug logging
 
     const [result] = await connection.execute(updateQuery, params);
-    await connection.end();
+    await connection.release();
 
     return NextResponse.json({ success: true, result });
 

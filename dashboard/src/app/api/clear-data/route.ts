@@ -17,7 +17,7 @@ export async function POST() {
             await connection.execute(`DELETE FROM ${table}`);
         }
 
-        await connection.end();
+        await connection.release();
 
         return NextResponse.json({
             success: true,
