@@ -425,6 +425,7 @@ export default function TamboWrapper({
             apiKey={tamboApiKey}
             environment={tamboEnvironment}
             tamboUrl={tamboUrl}
+            streaming={false}
             tools={tools}
             contextHelpers={{
                 currentPage: currentPageContextHelper,
