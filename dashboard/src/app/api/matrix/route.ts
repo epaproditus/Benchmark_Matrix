@@ -254,12 +254,10 @@ export async function GET(request: Request) {
       if (subject === 'campus') {
         // Campus view combines both math and RLA data
         query = `
-          WITH MathData AS (
+          WITH MathCalculated AS (
             SELECT 
               ${mathStaarSql} as staar_level,
-              ${mathBenchSql} as benchmark_level,
-              COUNT(*) as student_count,
-              \`Group #\` as group_number
+              ${mathBenchSql} as benchmark_level
             FROM (
               SELECT base.*, pp.Score as pp_score 
               FROM (
@@ -270,10 +268,17 @@ export async function GET(request: Request) {
               ) base
               LEFT JOIN previous_performance pp ON base.\`Local Id\` = pp.LocalId
             ) math_combined
-            GROUP BY 
+          ),
+          MathData AS (
+            SELECT
               staar_level,
               benchmark_level,
-              \`Group #\`
+              COUNT(*) as student_count,
+              ${getGroupNumberSql('staar_level', 'benchmark_level')} as group_number
+            FROM MathCalculated
+            GROUP BY 
+              staar_level,
+              benchmark_level
           ),
           RLAData AS (
             SELECT 
@@ -340,24 +345,30 @@ export async function GET(request: Request) {
       } else {
         if (version === 'spring' || version === 'spring-algebra') {
           query = `
-            SELECT 
-              ${mathStaarSql} as staar_level,
-              ${mathBenchSql} as benchmark_level,
-              COUNT(*) as student_count,
-              \`Group #\` as group_number
-            FROM (
-              SELECT base.*, pp.Score as pp_score 
+            WITH Calculated AS (
+              SELECT 
+                ${mathStaarSql} as staar_level,
+                ${mathBenchSql} as benchmark_level
               FROM (
-                SELECT * FROM spring_matrix_data 
-                ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-                UNION ALL
-                SELECT * FROM spring7_matrix_view
-              ) base
-              LEFT JOIN previous_performance pp ON base.\`Local Id\` = pp.LocalId
-            ) t1
-            WHERE 1=1
-            ${teacher ? 'AND `Benchmark Teacher` = ?' : ''} 
-            GROUP BY staar_level, benchmark_level, \`Group #\`
+                SELECT base.*, pp.Score as pp_score 
+                FROM (
+                  SELECT * FROM spring_matrix_data 
+                  ${version === 'spring' ? 'WHERE `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+                  UNION ALL
+                  SELECT * FROM spring7_matrix_view
+                ) base
+                LEFT JOIN previous_performance pp ON base.\`Local Id\` = pp.LocalId
+              ) t1
+              WHERE 1=1
+              ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
+            )
+            SELECT
+              staar_level,
+              benchmark_level,
+              COUNT(*) as student_count,
+              ${getGroupNumberSql('staar_level', 'benchmark_level')} as group_number
+            FROM Calculated
+            GROUP BY staar_level, benchmark_level
           `;
         }
       }
@@ -371,12 +382,10 @@ export async function GET(request: Request) {
         const rlaTable = grade === '7' ? 'rla_data7' : 'rla_data8';
 
         query = `
-          WITH MathData AS (
+          WITH MathCalculated AS (
             SELECT 
               ${mathStaarSql} as staar_level,
-              ${mathBenchSql} as benchmark_level,
-              COUNT(*) as student_count,
-              \`Group #\` as group_number
+              ${mathBenchSql} as benchmark_level
             FROM (
                 SELECT base.*, pp.Score as pp_score
                 FROM ${mathTable} base
@@ -384,14 +393,21 @@ export async function GET(request: Request) {
             ) m
             WHERE Grade = ?
             ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-            GROUP BY 
+          ),
+          MathData AS (
+            SELECT
               staar_level,
               benchmark_level,
-              \`Group #\`
+              COUNT(*) as student_count,
+              ${getGroupNumberSql('staar_level', 'benchmark_level')} as group_number
+            FROM MathCalculated
+            GROUP BY 
+              staar_level,
+              benchmark_level
           ),
           RLAData AS (
             SELECT 
-              ${rlaStaarSql} as staar_level, // Use calculated sql, not static column
+              ${rlaStaarSql} as staar_level,
               Benchmark_Performance as benchmark_level,
               COUNT(*) as student_count,
               Group_Number as group_number
@@ -463,20 +479,26 @@ export async function GET(request: Request) {
         // Math fallback for single grade
         const tableName = grade === '7' ? 'spring7_matrix_view' : 'spring_matrix_data';
         query = `
+          WITH Calculated AS (
+            SELECT
+              ${mathStaarSql} as staar_level,
+              ${mathBenchSql} as benchmark_level
+            FROM (
+               SELECT base.*, pp.Score as pp_score
+               FROM ${tableName} base
+               LEFT JOIN previous_performance pp ON base.\`Local Id\` = pp.LocalId
+            ) combined
+            WHERE 1=1
+            ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
+            ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
+          )
           SELECT
-            ${mathStaarSql} as staar_level,
-            ${mathBenchSql} as benchmark_level,
+            staar_level,
+            benchmark_level,
             COUNT(*) as student_count,
-            \`Group #\` as group_number
-          FROM (
-             SELECT base.*, pp.Score as pp_score
-             FROM ${tableName} base
-             LEFT JOIN previous_performance pp ON base.\`Local Id\` = pp.LocalId
-          ) combined
-          WHERE 1=1
-          ${teacher ? 'AND `Benchmark Teacher` = ?' : ''}
-          ${version === 'spring' ? 'AND `Local Id` NOT IN (SELECT LocalID FROM spralg1)' : ''}
-          GROUP BY staar_level, benchmark_level, \`Group #\`
+            ${getGroupNumberSql('staar_level', 'benchmark_level')} as group_number
+          FROM Calculated
+          GROUP BY staar_level, benchmark_level
         `;
       }
     }
