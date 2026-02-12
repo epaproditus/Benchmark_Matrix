@@ -647,23 +647,23 @@ const PerformanceMatrix = () => {
                     {/* STAAR Scores */}
                     <div className={`${mathColorClass} p-2 rounded`}>
                       <div className="font-bold opacity-75 text-xs mb-1">STAAR</div>
-                      <div>{student.staar_score || 'N/A'}</div>
+                      <div className="text-violet-100 font-semibold">{student.staar_score ?? 'N/A'}</div>
                       <div className="text-xs">{student.staar_level || 'N/A'}</div>
                     </div>
 
                     {/* Fall Benchmark */}
                     <div className={`${mathColorClass} p-2 rounded`}>
                       <div className="font-bold opacity-75 text-xs mb-1">Fall</div>
-                      <div>{student.fall_benchmark_score || 'N/A'}</div>
+                      <div className="text-amber-100 font-semibold">{student.fall_benchmark_score ?? 'N/A'}</div>
                       <div className="text-xs opacity-75">Benchmark</div>
                     </div>
 
                     {/* Spring Benchmark */}
                     <div className={`${mathColorClass} p-2 rounded relative`}>
                       <div className="font-bold opacity-75 text-xs mb-1">Spring</div>
-                      {student.spring_benchmark_score ? (
+                      {student.spring_benchmark_score !== null && student.spring_benchmark_score !== undefined ? (
                         <>
-                          <div>{student.spring_benchmark_score}</div>
+                          <div className="text-cyan-100 font-semibold">{student.spring_benchmark_score}</div>
                           <div className="text-xs">{student.benchmark_level || 'N/A'}</div>
                         </>
                       ) : (
