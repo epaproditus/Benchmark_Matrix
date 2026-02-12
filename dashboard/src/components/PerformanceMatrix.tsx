@@ -418,18 +418,22 @@ const PerformanceMatrix = () => {
           subject: selectedSubject  // Add subject to POST request
         }),
       });
-      const data = await response.json();
-      console.log('Received student data:', data.students);
-      setSelectedStudents(data.students || []);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
 
-      // Fetch assessments for each student
-      const assessments: { [key: string]: Assessment[] } = {};
-      for (const student of data.students) {
+      const data = await response.json();
+      const students = Array.isArray(data?.students) ? data.students : [];
+      console.log('Received student data:', students);
+      setSelectedStudents(students);
+
+      // Clear old assessments, then fetch for current student set only
+      setStudentAssessments({});
+      for (const student of students) {
         if (student.local_id) {
           await fetchStudentAssessments(student.local_id);
         }
       }
-      setStudentAssessments(assessments);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
