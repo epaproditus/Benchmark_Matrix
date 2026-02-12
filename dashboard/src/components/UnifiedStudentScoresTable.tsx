@@ -142,8 +142,8 @@ export function UnifiedStudentScoresTable() {
         }
     };
 
-    const handleDelete = async (localId: string) => {
-        if (!confirm('Are you sure you want to delete this student record from ALL lists? This cannot be undone.')) return;
+    const handleDelete = async (localId: string): Promise<boolean> => {
+        if (!confirm('Are you sure you want to delete this student record from ALL lists? This cannot be undone.')) return false;
 
         try {
             const res = await fetch('/api/student-scores', {
@@ -155,12 +155,18 @@ export function UnifiedStudentScoresTable() {
             if (res.ok) {
                 // Remove from local state immediately
                 setData(prev => prev.filter(r => r.LocalId !== localId));
+                if (editingLocalId === localId) {
+                    cancelEdit();
+                }
+                return true;
             } else {
                 alert('Failed to delete record.');
+                return false;
             }
         } catch (error) {
             console.error('Delete failed:', error);
             alert('Error deleting record.');
+            return false;
         }
     };
 
@@ -205,6 +211,11 @@ export function UnifiedStudentScoresTable() {
         }
         return sortableItems;
     }, [data, sortConfig, filterText]);
+
+    const editingRow = useMemo(
+        () => (editingLocalId ? data.find(row => row.LocalId === editingLocalId) ?? null : null),
+        [data, editingLocalId],
+    );
 
     const getLevelColor = (level: string | null) => {
         if (!level) return 'text-zinc-500';
@@ -266,6 +277,9 @@ export function UnifiedStudentScoresTable() {
 
             {isOpen && (
                 <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                    <div className="px-6 py-2 text-xs text-zinc-500 border-b border-zinc-800">
+                        Click a student row to edit scores.
+                    </div>
                     <table className="min-w-full divide-y divide-zinc-800">
                         <thead className="bg-zinc-900 sticky top-0 z-10">
                             <tr>
@@ -300,99 +314,144 @@ export function UnifiedStudentScoresTable() {
                         </thead>
                         <tbody className="bg-black divide-y divide-zinc-800">
                             {sortedData.map((row) => (
-                                <tr key={row.LocalId} className="hover:bg-zinc-900/70 group">
+                                <tr
+                                    key={row.LocalId}
+                                    className="hover:bg-zinc-900/70 group cursor-pointer"
+                                    onClick={() => startEdit(row)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            startEdit(row);
+                                        }
+                                    }}
+                                >
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-200">
                                         <div className="font-medium">{row.LastName}, {row.FirstName}</div>
                                         <div className="text-xs text-zinc-500">{row.LocalId}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {editingLocalId === row.LocalId && editDraft ? (
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={100}
-                                                step={0.1}
-                                                value={editDraft.StaarScore}
-                                                onChange={(e) => setEditDraft(prev => prev ? { ...prev, StaarScore: e.target.value } : prev)}
-                                                className="w-24 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                            />
-                                        ) : (
-                                            renderScoreCell(row.StaarScore, row.StaarLevel, 'staar')
-                                        )}
+                                        {renderScoreCell(row.StaarScore, row.StaarLevel, 'staar')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {editingLocalId === row.LocalId && editDraft ? (
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={100}
-                                                step={0.1}
-                                                value={editDraft.FallScore}
-                                                onChange={(e) => setEditDraft(prev => prev ? { ...prev, FallScore: e.target.value } : prev)}
-                                                className="w-24 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                            />
-                                        ) : (
-                                            renderScoreCell(row.FallScore, row.FallLevel, 'fall')
-                                        )}
+                                        {renderScoreCell(row.FallScore, row.FallLevel, 'fall')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {editingLocalId === row.LocalId && editDraft ? (
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={100}
-                                                step={0.1}
-                                                value={editDraft.SpringScore}
-                                                onChange={(e) => setEditDraft(prev => prev ? { ...prev, SpringScore: e.target.value } : prev)}
-                                                className="w-24 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                                            />
-                                        ) : (
-                                            renderScoreCell(row.SpringScore, row.SpringLevel, 'spring')
-                                        )}
+                                        {renderScoreCell(row.SpringScore, row.SpringLevel, 'spring')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        {editingLocalId === row.LocalId ? (
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleSave(row)}
-                                                    disabled={isSaving}
-                                                    className="px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
-                                                    title="Save Edits"
-                                                >
-                                                    {isSaving ? 'Saving...' : 'Save'}
-                                                </button>
-                                                <button
-                                                    onClick={cancelEdit}
-                                                    disabled={isSaving}
-                                                    className="px-2 py-1 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600 disabled:opacity-60"
-                                                    title="Cancel"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => startEdit(row)}
-                                                    className="px-2 py-1 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600"
-                                                    title="Edit Scores"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(row.LocalId)}
-                                                    className="text-rose-400 hover:text-rose-300"
-                                                    title="Delete Record"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        )}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                void handleDelete(row.LocalId);
+                                            }}
+                                            className="px-2 py-1 rounded bg-rose-900/60 text-rose-200 hover:bg-rose-800/80"
+                                            title="Delete Record"
+                                        >
+                                            Delete
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+            {editingRow && editDraft && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                    onClick={() => {
+                        if (!isSaving) cancelEdit();
+                    }}
+                >
+                    <div
+                        className="w-full max-w-2xl rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-6 py-4 border-b border-zinc-800">
+                            <h3 className="text-lg font-semibold text-zinc-100">Edit Student Scores</h3>
+                            <p className="text-sm text-zinc-400 mt-1">
+                                {editingRow.LastName}, {editingRow.FirstName} · {editingRow.LocalId}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-5">
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-violet-300 font-medium">Previous STAAR</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editDraft.StaarScore}
+                                    onChange={(e) => setEditDraft(prev => (prev ? { ...prev, StaarScore: e.target.value } : prev))}
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-amber-300 font-medium">Fall Benchmark</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editDraft.FallScore}
+                                    onChange={(e) => setEditDraft(prev => (prev ? { ...prev, FallScore: e.target.value } : prev))}
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-cyan-300 font-medium">Spring Benchmark</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editDraft.SpringScore}
+                                    onChange={(e) => setEditDraft(prev => (prev ? { ...prev, SpringScore: e.target.value } : prev))}
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                            <button
+                                onClick={async () => {
+                                    const didDelete = await handleDelete(editingRow.LocalId);
+                                    if (didDelete) {
+                                        cancelEdit();
+                                    }
+                                }}
+                                disabled={isSaving}
+                                className="px-3 py-2 rounded bg-rose-900/60 text-rose-200 hover:bg-rose-800/80 disabled:opacity-60"
+                            >
+                                Delete Student
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={cancelEdit}
+                                    disabled={isSaving}
+                                    className="px-3 py-2 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600 disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleSave(editingRow)}
+                                    disabled={isSaving}
+                                    className="px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
+                                >
+                                    {isSaving ? 'Saving...' : 'Save Scores'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
