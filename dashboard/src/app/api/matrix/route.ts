@@ -639,6 +639,7 @@ export async function POST(request: Request) {
 
     const mathStaarSql = getLevelSql('COALESCE(m.pp_score, m.`STAAR MA07 Percent Score`)', mathPreviousThresholds, false);
     const mathBenchSql = getLevelSql('m.`Benchmark PercentScore`', mathCurrentThresholds, false);
+    const mathGroupSql = getGroupNumberSql(mathStaarSql, mathBenchSql);
 
     const rlaStaarSql = getLevelSql('COALESCE(m.pp_score, m.STAAR_Score)', rlaPreviousThresholds, false);
     const rlaBenchSql = getLevelSql('m.Benchmark_Score', rlaCurrentThresholds, false);
@@ -858,7 +859,7 @@ export async function POST(request: Request) {
 
         whereClause.push(`${mathStaarSql} = ?`);
         whereClause.push(`${mathBenchSql} = ?`);
-        whereClause.push('m.`Group #` = ?');
+        whereClause.push(`${mathGroupSql} = ?`);
 
         if (teacher) {
           whereClause.push('m.`Benchmark Teacher` = ?');
@@ -884,7 +885,7 @@ export async function POST(request: Request) {
             ${mathStaarSql} as staar_level,
             m.\`Benchmark PercentScore\` as benchmark_score,
             ${mathBenchSql} as benchmark_level,
-            m.\`Group #\` as group_number,
+            ${mathGroupSql} as group_number,
             -- RLA scores
             COALESCE(r.pp_score, r.STAAR_Score) as rla_staar_score,
             ${joinedRlaStaarSql} as rla_staar_level,
