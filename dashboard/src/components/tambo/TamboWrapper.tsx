@@ -4,6 +4,37 @@ import { TamboProvider, defineTool, currentPageContextHelper, currentTimeContext
 import { z } from "zod";
 import { TamboChatPopup } from "./TamboChatPopup";
 
+function ensureCryptoRandomUUID() {
+    if (typeof globalThis === 'undefined') return;
+
+    const cryptoObj = globalThis.crypto as (Crypto & { randomUUID?: () => string }) | undefined;
+    if (!cryptoObj) return;
+    if (typeof cryptoObj.randomUUID === 'function') return;
+
+    const createUuidFromBytes = (bytes: Uint8Array): `${string}-${string}-${string}-${string}-${string}` => {
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    };
+
+    (cryptoObj as { randomUUID: () => `${string}-${string}-${string}-${string}-${string}` }).randomUUID = () => {
+        if (typeof cryptoObj.getRandomValues === 'function') {
+            const bytes = new Uint8Array(16);
+            cryptoObj.getRandomValues(bytes);
+            return createUuidFromBytes(bytes);
+        }
+
+        const fallbackBytes = new Uint8Array(16);
+        for (let i = 0; i < fallbackBytes.length; i += 1) {
+            fallbackBytes[i] = Math.floor(Math.random() * 256);
+        }
+        return createUuidFromBytes(fallbackBytes);
+    };
+}
+
+ensureCryptoRandomUUID();
+
 const tools = [
     defineTool({
         name: "updateStudentScore",
