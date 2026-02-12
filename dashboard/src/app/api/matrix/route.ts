@@ -615,11 +615,13 @@ export async function POST(request: Request) {
     const rlaPreviousThresholds = config?.thresholds?.rla?.previous || [];
     const rlaCurrentThresholds = config?.thresholds?.rla?.current || [];
 
-    const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathPreviousThresholds, true);
-    const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathCurrentThresholds, false);
+    const mathStaarSql = getLevelSql('COALESCE(m.pp_score, m.`STAAR MA07 Percent Score`)', mathPreviousThresholds, false);
+    const mathBenchSql = getLevelSql('m.`Benchmark PercentScore`', mathCurrentThresholds, false);
 
-    const rlaStaarSql = getLevelSql('r.STAAR_Score', rlaPreviousThresholds, true);
-    const rlaBenchSql = getLevelSql('r.Benchmark_Score', rlaCurrentThresholds, false);
+    const rlaStaarSql = getLevelSql('COALESCE(m.pp_score, m.STAAR_Score)', rlaPreviousThresholds, false);
+    const rlaBenchSql = getLevelSql('m.Benchmark_Score', rlaCurrentThresholds, false);
+    const joinedRlaStaarSql = getLevelSql('COALESCE(r.pp_score, r.STAAR_Score)', rlaPreviousThresholds, false);
+    const joinedRlaBenchSql = getLevelSql('r.Benchmark_Score', rlaCurrentThresholds, false);
 
     connection = await connectToDatabase();
 
@@ -809,7 +811,7 @@ export async function POST(request: Request) {
             m.Grade,
             m.Campus,
             m.Benchmark_Score as benchmark_score,
-            COALESCE(pp.Score, m.STAAR_Score) as staar_score,
+            COALESCE(m.pp_score, m.STAAR_Score) as staar_score,
             m.LocalId as local_id,
             m.Teacher
           FROM (
@@ -856,16 +858,16 @@ export async function POST(request: Request) {
             m.\`Local Id\` as local_id,
             m.\`Benchmark Teacher\` as Teacher,
             -- Math scores
-            COALESCE(pp.Score, m.\`STAAR MA07 Percent Score\`) as staar_score,
+            COALESCE(m.pp_score, m.\`STAAR MA07 Percent Score\`) as staar_score,
             ${mathStaarSql} as staar_level,
             m.\`Benchmark PercentScore\` as benchmark_score,
             ${mathBenchSql} as benchmark_level,
             m.\`Group #\` as group_number,
             -- RLA scores
-            COALESCE(pp2.Score, r.STAAR_Score) as rla_staar_score,
-            ${rlaStaarSql} as rla_staar_level,
+            COALESCE(r.pp_score, r.STAAR_Score) as rla_staar_score,
+            ${joinedRlaStaarSql} as rla_staar_level,
             r.Benchmark_Score as rla_benchmark_score,
-            ${rlaBenchSql} as rla_benchmark_level,
+            ${joinedRlaBenchSql} as rla_benchmark_level,
             r.Group_Number as rla_group_number
           FROM (
             SELECT base.*, pp.Score as pp_score 
