@@ -95,11 +95,11 @@ export async function GET(request: Request) {
   const rlaPreviousThresholds = config?.thresholds?.rla?.previous || [];
   const rlaCurrentThresholds = config?.thresholds?.rla?.current || [];
 
-  // Use override=true for Previous (Y-axis) columns
-  const mathStaarSql = getLevelSql('`STAAR MA07 Percent Score`', mathPreviousThresholds, true);
+  // Y-axis uses previous STAAR from previous_performance (pp_score)
+  const mathStaarSql = getLevelSql('COALESCE(pp_score, 0)', mathPreviousThresholds, false);
   const mathBenchSql = getLevelSql('`Benchmark PercentScore`', mathCurrentThresholds, false);
 
-  const rlaStaarSql = getLevelSql('STAAR_Score', rlaPreviousThresholds, true);
+  const rlaStaarSql = getLevelSql('COALESCE(pp_score, 0)', rlaPreviousThresholds, false);
   const rlaBenchSql = getLevelSql('Benchmark_Score', rlaCurrentThresholds, false);
 
   try {
