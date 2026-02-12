@@ -455,7 +455,7 @@ const PerformanceMatrix = () => {
         return 'bg-red-200 text-red-800';
       }
       // Blue cells - Moderate Growth
-      if ([15, 22, 29].includes(groupNumber)) {
+      if ([15, 22].includes(groupNumber)) {
         return 'bg-blue-200 text-blue-800';
       }
       // Green cells - Expected/Accelerated Growth (Using the list that was previously Red)
@@ -467,7 +467,7 @@ const PerformanceMatrix = () => {
       if ([1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(groupNumber)) {
         return 'bg-red-200 text-red-800';
       }
-      if ([29, 22, 15].includes(groupNumber)) {
+      if ([22, 15].includes(groupNumber)) {
         return 'bg-blue-200 text-blue-800';
       }
       // Former Red list becomes Green (36, 30...)
@@ -512,10 +512,10 @@ const PerformanceMatrix = () => {
       if (selectedSubject === 'rla') {
         const pointsMap = {
           base: matrixData
-            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+            .filter(d => d && [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
             .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
           half: matrixData
-            .filter(d => d && [15, 22, 29].includes(d.group_number))
+            .filter(d => d && [15, 22].includes(d.group_number))
             .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
           quarter: matrixData
             .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High', 'Did Not Meet'].includes(d.staar_level))
@@ -525,10 +525,10 @@ const PerformanceMatrix = () => {
       } else {
         const pointsMap = {
           base: matrixData
-            .filter(d => d && [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+            .filter(d => d && [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
             .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
           half: matrixData
-            .filter(d => d && [29, 22, 15].includes(d.group_number))
+            .filter(d => d && [22, 15].includes(d.group_number))
             .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
           quarter: matrixData
             .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
@@ -1056,24 +1056,24 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                    {matrixData.filter(d => [22, 15].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                    {(matrixData.filter(d => [22, 15].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+                    {matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+                    {(matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                       .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
                   </td>
                 </tr>
@@ -1085,9 +1085,9 @@ const PerformanceMatrix = () => {
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
                     {(
-                      matrixData.filter(d => [29, 22, 15].includes(d.group_number))
+                      matrixData.filter(d => [22, 15].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => [36, 30, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+                      matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 1.0
                     ).toFixed(1)}
                   </td>
