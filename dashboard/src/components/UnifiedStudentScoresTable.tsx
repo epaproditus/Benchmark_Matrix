@@ -105,70 +105,34 @@ export function UnifiedStudentScoresTable() {
                 return;
             }
 
-            if (hasStaarChanged) {
-                const previousRes = await fetch('/api/bulk-import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'previous_performance',
-                        students: [{
-                            localId: row.LocalId,
-                            firstName: row.FirstName,
-                            lastName: row.LastName,
-                            score: staarScore,
-                        }]
-                    }),
-                });
-                const previousJson = await previousRes.json().catch(() => null);
-                if (!previousRes.ok || previousJson?.success === false) {
-                    throw new Error(previousJson?.message || 'Failed to update Previous STAAR score.');
-                }
-            }
+            const payload: {
+                localId: string;
+                firstName?: string | null;
+                lastName?: string | null;
+                staarScore?: number | null;
+                fallScore?: number | null;
+                springScore?: number | null;
+            } = {
+                localId: row.LocalId,
+                firstName: row.FirstName,
+                lastName: row.LastName,
+            };
 
-            if (hasFallChanged) {
-                const fallRes = await fetch('/api/bulk-import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'fall_performance',
-                        students: [{
-                            localId: row.LocalId,
-                            firstName: row.FirstName,
-                            lastName: row.LastName,
-                            score: fallScore,
-                        }]
-                    }),
-                });
-                const fallJson = await fallRes.json().catch(() => null);
-                if (!fallRes.ok || fallJson?.success === false) {
-                    throw new Error(fallJson?.message || 'Failed to update Fall score.');
-                }
-            }
+            if (hasStaarChanged) payload.staarScore = staarScore;
+            if (hasFallChanged) payload.fallScore = fallScore;
+            if (hasSpringChanged) payload.springScore = springScore;
 
-            if (hasSpringChanged || hasStaarChanged) {
-                const springPayload: { localId: string; benchmarkScore?: number | null; staarScore?: number | null } = {
-                    localId: row.LocalId,
-                };
-                if (hasSpringChanged) {
-                    springPayload.benchmarkScore = springScore;
-                }
-                if (hasStaarChanged) {
-                    springPayload.staarScore = staarScore;
-                }
-
-                const springRes = await fetch('/api/missing-data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(springPayload),
-                });
-                const springJson = await springRes.json().catch(() => null);
-                if (!springRes.ok || springJson?.success === false) {
-                    throw new Error(springJson?.message || 'Failed to update Spring score.');
-                }
+            const saveRes = await fetch('/api/student-scores', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const saveJson = await saveRes.json().catch(() => null);
+            if (!saveRes.ok || saveJson?.success === false) {
+                throw new Error(saveJson?.error || 'Failed to save score updates.');
             }
 
             await fetchData();
-            window.dispatchEvent(new CustomEvent('tambo-action', { detail: { action: 'refresh' } }));
             cancelEdit();
         } catch (error) {
             console.error('Failed to save score edits:', error);

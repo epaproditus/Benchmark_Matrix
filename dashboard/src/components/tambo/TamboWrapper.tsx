@@ -380,6 +380,10 @@ const tools = [
     }),
 ];
 
+const tamboApiKey = process.env.NEXT_PUBLIC_TAMBO_API_KEY || '';
+const tamboEnvironment = process.env.NEXT_PUBLIC_TAMBO_ENV === 'staging' ? 'staging' : 'production';
+const tamboUrl = process.env.NEXT_PUBLIC_TAMBO_URL;
+
 export default function TamboWrapper({
     children,
 }: {
@@ -387,7 +391,9 @@ export default function TamboWrapper({
 }) {
     return (
         <TamboProvider
-            apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY || ''}
+            apiKey={tamboApiKey}
+            environment={tamboEnvironment}
+            tamboUrl={tamboUrl}
             tools={tools}
             contextHelpers={{
                 currentPage: currentPageContextHelper,
