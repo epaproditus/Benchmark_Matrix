@@ -143,7 +143,7 @@ const MessageInput = React.forwardRef<HTMLFormElement, MessageInputProps>(
         setDisplayValue("");
         try {
           await submit({
-            streamResponse: true,
+            streamResponse: false,
           });
           setValue("");
           setTimeout(() => {
