@@ -11,9 +11,10 @@ export async function GET(request: Request) {
   const grade = searchParams.get('grade');
   const version = searchParams.get('version') || 'spring';
   const subject = searchParams.get('subject') || 'math'; // Add subject parameter
+  let connection: Awaited<ReturnType<typeof connectToDatabase>> | null = null;
 
   try {
-    const connection = await connectToDatabase();
+    connection = await connectToDatabase();
 
     // Different query structure for RLA
     if (subject === 'rla') {
@@ -42,8 +43,6 @@ export async function GET(request: Request) {
       }
 
       const [teachers] = await connection.execute(query, params);
-      await connection.end();
-
       return NextResponse.json({
         teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
           name: t.teacher,
@@ -81,7 +80,6 @@ export async function GET(request: Request) {
     const availableGrades = (grades as GradeResult[]).map(g => g.Grade);
 
     if (availableGrades.length === 0) {
-      await connection.end();
       return NextResponse.json({
         teachers: [],
         gradeHasData: false
@@ -146,8 +144,6 @@ export async function GET(request: Request) {
     }
 
     const [teachers] = await connection.execute(query, params);
-    // connection.release() will be called in finally
-
     return NextResponse.json({
       teachers: (teachers as Teacher[]).map((t: Teacher): TeacherResponse => ({
         name: t.teacher,
@@ -160,7 +156,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   } finally {
     if (connection) {
-      await connection.release(); // Ensure connection is released
+      await connection.release();
     }
   }
 }
