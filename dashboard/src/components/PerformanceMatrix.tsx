@@ -375,6 +375,10 @@ const PerformanceMatrix = () => {
 
   // Logic updated to match TEA matrix orientation-agnostically
   const isDidNotMeetLevel = (level: string) => level.includes('Did Not Meet');
+  const isLowDidNotMeetLevel = (level: string) =>
+    level === 'Did Not Meet' || level.includes('Did Not Meet Low') || level.includes('Low Did Not Meet');
+  const isHighDidNotMeetLevel = (level: string) =>
+    level.includes('Did Not Meet High') || level.includes('High Did Not Meet');
 
   const isDidNotMeetGrowth = (cell: CellData): boolean => {
     const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
@@ -390,16 +394,16 @@ const PerformanceMatrix = () => {
 
     if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return 0;
 
-    // Did Not Meet growth is scored separately in HB4545 (0.25 bonus), not in base points.
+    // All growth earns 1.0 base points.
     if (benchmarkIdx > staarIdx) {
-      return isDidNotMeetLevel(cell.staar_level) ? 0 : 1.0;
+      return 1.0;
     }
 
     // Maintenance earns points based on previous level
     if (staarIdx === benchmarkIdx) {
       const level = cell.staar_level;
-      if (isDidNotMeetLevel(level)) return 0;
-      if (level.includes('Approaches')) return 0.5;
+      if (isLowDidNotMeetLevel(level)) return 0;
+      if (isHighDidNotMeetLevel(level) || level.includes('Approaches')) return 0.5;
       return 1.0; // Meets/Masters
     }
 
