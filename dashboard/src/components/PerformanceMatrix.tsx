@@ -137,6 +137,7 @@ const PerformanceMatrix = () => {
   const [selectedVersion, setSelectedVersion] = useState<'fall' | 'spring' | 'spring-algebra'>('spring-algebra');
   const [hasTeacherData, setHasTeacherData] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<'math' | 'rla' | 'campus'>('math');
+  const [hideStudentNames, setHideStudentNames] = useState(false);
   const [availableGrades, setAvailableGrades] = useState<{
     grades: string[];
     hasData: { [key: string]: boolean };
@@ -604,15 +605,27 @@ const PerformanceMatrix = () => {
     return label;
   };
 
+  const getStudentNameText = (student: Student) => {
+    if (hideStudentNames) {
+      return 'Hidden Student';
+    }
+    return `${student['First Name']} ${student['Last Name']}`.trim();
+  };
+
+  const getStudentNameClassName = () =>
+    hideStudentNames
+      ? 'font-bold blur-sm select-none pointer-events-none'
+      : 'font-bold';
+
   return (
     <div className="p-4">
       <div className="mb-4 bg-black text-white p-4 rounded">
-        <div className="flex justify-between items-end">
+        <div className="flex justify-between items-end gap-4 flex-wrap">
           <div className="flex gap-4">
             {/* Subject selector could go here if needed, but it's currently managed via Tambo actions */}
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
             <label htmlFor="search" className="mr-2 text-sm font-bold">Search:</label>
             <input
               type="text"
@@ -646,6 +659,16 @@ const PerformanceMatrix = () => {
               }}
               className="bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:border-white outline-none w-48"
             />
+            <button
+              type="button"
+              onClick={() => setHideStudentNames((prev) => !prev)}
+              className={`px-3 py-1 rounded text-sm font-semibold border transition-colors ${hideStudentNames
+                ? 'bg-cyan-900/40 border-cyan-400 text-cyan-200'
+                : 'bg-gray-900 border-gray-600 text-gray-200 hover:border-gray-400'
+                }`}
+            >
+              {hideStudentNames ? 'Show Names' : 'Hide Names'}
+            </button>
           </div>
           {!hasTeacherData && selectedGrade && (
             <div className="text-gray-500 text-sm mt-1">
@@ -680,7 +703,7 @@ const PerformanceMatrix = () => {
                   className="p-3 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900"
                 >
                   <div className="mb-2">
-                    <div className="font-bold">{student['First Name']} {student['Last Name']}</div>
+                    <div className={getStudentNameClassName()}>{getStudentNameText(student)}</div>
                     <div className="text-sm opacity-75">Grade {student.Grade} • {student.Teacher}</div>
                   </div>
 
@@ -841,8 +864,8 @@ const PerformanceMatrix = () => {
                     <div key={index}
                       className="p-2 rounded shadow-md hover:opacity-90 transition-opacity bg-gray-900 text-sm"
                     >
-                      <div className="font-bold border-b border-gray-700 pb-1 mb-1">
-                        {student['First Name']} {student['Last Name']}
+                      <div className={`${getStudentNameClassName()} border-b border-gray-700 pb-1 mb-1`}>
+                        {getStudentNameText(student)}
                         <div className="text-xs opacity-75">{student.Grade}th • {student.Teacher}</div>
                       </div>
 
@@ -883,7 +906,10 @@ const PerformanceMatrix = () => {
                 return (
                   <div key={student.local_id}>
                     <h3 className="text-xl font-bold mb-4">
-                      {student['First Name']} {student['Last Name']}&apos;s Assessment History
+                      <span className={hideStudentNames ? 'blur-sm select-none' : ''}>
+                        {getStudentNameText(student)}
+                      </span>
+                      &apos;s Assessment History
                     </h3>
                     {assessments.length > 0 ? (
                       <div>
