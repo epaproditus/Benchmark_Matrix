@@ -374,36 +374,45 @@ const PerformanceMatrix = () => {
   };
 
   // Logic updated to match TEA matrix orientation-agnostically
+  const isDidNotMeetLevel = (level: string) => level.includes('Did Not Meet');
+
+  const getCellMultiplier = (cell: CellData): number => {
+    const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
+    const benchmarkIdx = finalCurrentLevels.indexOf(cell.benchmark_level);
+    const count = Number(cell.student_count) || 0;
+
+    if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return 0;
+
+    // Growth from Did Not Meet earns 0.25; other growth earns 1.0
+    if (benchmarkIdx > staarIdx) {
+      return isDidNotMeetLevel(cell.staar_level) ? 0.25 : 1.0;
+    }
+
+    // Maintenance earns points based on previous level
+    if (staarIdx === benchmarkIdx) {
+      const level = cell.staar_level;
+      if (isDidNotMeetLevel(level)) return 0;
+      if (level.includes('Approaches')) return 0.5;
+      return 1.0; // Meets/Masters
+    }
+
+    // Regression earns 0
+    return 0;
+  };
+
+  const getCountByMultiplier = (multiplier: number) =>
+    matrixData.reduce((sum: number, cell: CellData) => {
+      const count = Number(cell.student_count) || 0;
+      return getCellMultiplier(cell) === multiplier ? sum + count : sum;
+    }, 0);
+
   const calculateTotalPoints = () => {
     try {
       if (!matrixData || !Array.isArray(matrixData)) return 0;
 
-      return matrixData.reduce((totalPoints, cell) => {
-        const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
-        const benchmarkIdx = finalCurrentLevels.indexOf(cell.benchmark_level);
+      return matrixData.reduce((totalPoints: number, cell: CellData) => {
         const count = Number(cell.student_count) || 0;
-
-        if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return totalPoints;
-
-        let multiplier = 0;
-
-        // Growth: 1.0 point
-        if (benchmarkIdx > staarIdx) {
-          multiplier = 1.0;
-        }
-        // Maintenance: Level-specific
-        else if (staarIdx === benchmarkIdx) {
-          const level = cell.staar_level;
-          if (level === 'Low Did Not Meet' || level === 'Did Not Meet') multiplier = 0;
-          else if (level.includes('High Did Not Meet') || level.includes('Approaches')) multiplier = 0.5;
-          else multiplier = 1.0; // Meets and Masters maintenance is 1.0
-        }
-        // Regression: 0 points
-        else {
-          multiplier = 0;
-        }
-
-        return totalPoints + (count * multiplier);
+        return totalPoints + (count * getCellMultiplier(cell));
       }, 0);
     } catch (err) {
       console.error('Error calculating total points:', err);
@@ -914,53 +923,39 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => {
-                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                      return bIdx < sIdx || (sIdx === bIdx && (d.staar_level === 'Did Not Meet' || d.staar_level === 'Did Not Meet Low'));
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {getCountByMultiplier(0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
                 </tr>
                 <tr>
+                  <td className="border p-2">Tests earning 0.25 points</td>
+                  <td className="border p-2 text-center">
+                    {getCountByMultiplier(0.25)}
+                  </td>
+                  <td className="border p-2 text-center">0.25</td>
+                  <td className="border p-2 text-center">
+                    {formatPoints(getCountByMultiplier(0.25) * 0.25)}
+                  </td>
+                </tr>
+                <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => {
-                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                      return sIdx === bIdx && d.staar_level.includes('Approaches');
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {getCountByMultiplier(0.5)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(
-                      matrixData.filter(d => {
-                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                        return sIdx === bIdx && d.staar_level.includes('Approaches');
-                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5
-                    )}
+                    {formatPoints(getCountByMultiplier(0.5) * 0.5)}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => {
-                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                      return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0)}
+                    {getCountByMultiplier(1)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(
-                      matrixData.filter(d => {
-                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                        return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
-                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
-                    )}
+                    {formatPoints(getCountByMultiplier(1) * 1.0)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -970,18 +965,7 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(
-                      matrixData.filter(d => {
-                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                        return sIdx === bIdx && d.staar_level.includes('Approaches');
-                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => {
-                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                        return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
-                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
-                    )}
+                    {formatPoints(calculateTotalPoints())}
                   </td>
                 </tr>
               </tbody>
