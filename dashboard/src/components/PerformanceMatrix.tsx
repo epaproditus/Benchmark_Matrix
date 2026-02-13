@@ -542,6 +542,11 @@ const PerformanceMatrix = () => {
     }
   };
 
+  const formatPoints = (value: number): string => {
+    const rounded = Math.round(value * 100) / 100;
+    return Number.isInteger(rounded * 2) ? rounded.toFixed(1) : rounded.toFixed(2);
+  };
+
 
   if (!isMounted) return null;
 
@@ -703,7 +708,7 @@ const PerformanceMatrix = () => {
           <div className="text-lg bg-black text-white p-4 rounded-lg border border-white/20">
             <div className="flex justify-between">
               <span className="opacity-75">Total Points:</span>
-              <span className="font-mono font-bold">{calculateTotalPoints().toFixed(1)}</span>
+              <span className="font-mono font-bold">{formatPoints(calculateTotalPoints())}</span>
             </div>
             <div className="flex justify-between">
               <span className="opacity-75">Total Students:</span>
@@ -1061,8 +1066,10 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                    {formatPoints(
+                      matrixData.filter(d => [22, 15].includes(d.group_number))
+                        .reduce((sum, d) => sum + d.student_count, 0) * 0.5
+                    )}
                   </td>
                 </tr>
                 <tr>
@@ -1073,8 +1080,10 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0) * 1.0).toFixed(1)}
+                    {formatPoints(
+                      matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
+                        .reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                    )}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -1084,12 +1093,12 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {(
+                    {formatPoints(
                       matrixData.filter(d => [22, 15].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
                       matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
                         .reduce((sum, d) => sum + d.student_count, 0) * 1.0
-                    ).toFixed(1)}
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -1128,9 +1137,9 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d =>
+                    {formatPoints(matrixData.filter(d =>
                       [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.25).toFixed(1)}
+                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.25)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -1142,12 +1151,12 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {(
+                    {formatPoints(
                       matrixData.filter(d =>
                         [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
                         ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
                       ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
-                    ).toFixed(1)}
+                    )}
                   </td>
                 </tr>
               </tbody>
