@@ -503,44 +503,77 @@ const PerformanceMatrix = () => {
     return total;
   };
 
-  // Add helper function for points calculation
-  // Wrap calculation in a safe accessor
-  const calculateTotalPoints = () => {
+  const isDidNotMeetLevel = (level: string) => level.includes('Did Not Meet');
+  const isLowDidNotMeetLevel = (level: string) =>
+    level === 'Did Not Meet' || level.includes('Did Not Meet Low') || level.includes('Low Did Not Meet');
+  const isHighDidNotMeetLevel = (level: string) =>
+    level.includes('Did Not Meet High') || level.includes('High Did Not Meet');
+
+  const isDidNotMeetGrowth = (cell: CellData): boolean => {
+    const staarIdx = previousLevels.indexOf(cell.staar_level);
+    const benchmarkIdx = currentLevels.indexOf(cell.benchmark_level);
+    const count = Number(cell.student_count) || 0;
+    return staarIdx !== -1 && benchmarkIdx !== -1 && count > 0 && isDidNotMeetLevel(cell.staar_level) && benchmarkIdx > staarIdx;
+  };
+
+  const getBaseCellMultiplier = (cell: CellData): number => {
+    const staarIdx = previousLevels.indexOf(cell.staar_level);
+    const benchmarkIdx = currentLevels.indexOf(cell.benchmark_level);
+    const count = Number(cell.student_count) || 0;
+
+    if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return 0;
+
+    // All growth earns 1.0 base points.
+    if (benchmarkIdx > staarIdx) {
+      return 1.0;
+    }
+
+    // Maintenance earns points based on previous level.
+    if (staarIdx === benchmarkIdx) {
+      const level = cell.staar_level;
+      if (isLowDidNotMeetLevel(level)) return 0;
+      if (isHighDidNotMeetLevel(level) || level.includes('Approaches')) return 0.5;
+      return 1.0; // Meets/Masters
+    }
+
+    // Regression earns 0.
+    return 0;
+  };
+
+  const getCountByBaseMultiplier = (multiplier: number) =>
+    matrixData.reduce((sum: number, cell: CellData) => {
+      const count = Number(cell.student_count) || 0;
+      return getBaseCellMultiplier(cell) === multiplier ? sum + count : sum;
+    }, 0);
+
+  const calculateBasePoints = () => {
     try {
       if (!matrixData || !Array.isArray(matrixData)) return 0;
-
-      if (selectedSubject === 'rla') {
-        const pointsMap = {
-          base: matrixData
-            .filter(d => d && [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
-          half: matrixData
-            .filter(d => d && [15, 22].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
-          quarter: matrixData
-            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High', 'Did Not Meet'].includes(d.staar_level))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
-        };
-        return pointsMap.base + pointsMap.half + pointsMap.quarter;
-      } else {
-        const pointsMap = {
-          base: matrixData
-            .filter(d => d && [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 1.0,
-          half: matrixData
-            .filter(d => d && [22, 15].includes(d.group_number))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.5,
-          quarter: matrixData
-            .filter(d => d && [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) && ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level))
-            .reduce((sum, d) => sum + (Number(d.student_count) || 0), 0) * 0.25
-        };
-        return pointsMap.base + pointsMap.half + pointsMap.quarter;
-      }
+      return matrixData.reduce((totalPoints: number, cell: CellData) => {
+        const count = Number(cell.student_count) || 0;
+        return totalPoints + (count * getBaseCellMultiplier(cell));
+      }, 0);
     } catch (err) {
-      console.error('Error calculating total points:', err);
+      console.error('Error calculating base points:', err);
       return 0;
     }
   };
+
+  const calculateHb4545BonusPoints = () => {
+    try {
+      if (!matrixData || !Array.isArray(matrixData)) return 0;
+      const quarterCount = matrixData.reduce((sum: number, cell: CellData) => {
+        const count = Number(cell.student_count) || 0;
+        return isDidNotMeetGrowth(cell) ? sum + count : sum;
+      }, 0);
+      return quarterCount * 0.25;
+    } catch (err) {
+      console.error('Error calculating HB4545 bonus points:', err);
+      return 0;
+    }
+  };
+
+  const calculateTotalPoints = () => calculateBasePoints() + calculateHb4545BonusPoints();
 
   const formatPoints = (value: number): string => {
     const rounded = Math.round(value * 100) / 100;
@@ -1052,8 +1085,7 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [1, 7, 8, 13, 14, 19, 20, 21, 25, 26, 27, 28, 31, 32, 33, 34, 35].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                    {getCountByBaseMultiplier(0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -1061,28 +1093,24 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [22, 15].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                    {getCountByBaseMultiplier(0.5)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
                     {formatPoints(
-                      matrixData.filter(d => [22, 15].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 0.5
+                      getCountByBaseMultiplier(0.5) * 0.5
                     )}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                      .reduce((sum, d) => sum + d.student_count, 0)}
+                    {getCountByBaseMultiplier(1)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
                     {formatPoints(
-                      matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 1.0
+                      getCountByBaseMultiplier(1) * 1.0
                     )}
                   </td>
                 </tr>
@@ -1093,12 +1121,7 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(
-                      matrixData.filter(d => [22, 15].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 0.5 +
-                      matrixData.filter(d => [36, 30, 29, 24, 23, 18, 17, 16, 12, 11, 10, 9, 6, 5, 4, 3, 2].includes(d.group_number))
-                        .reduce((sum, d) => sum + d.student_count, 0) * 1.0
-                    )}
+                    {formatPoints(calculateBasePoints())}
                   </td>
                 </tr>
               </tbody>
@@ -1120,10 +1143,8 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d =>
-                      [36, 35, 30, 29].includes(d.group_number) &&
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => isDidNotMeetLevel(d.staar_level) && !isDidNotMeetGrowth(d))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
@@ -1131,32 +1152,24 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.25 points</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d =>
-                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => isDidNotMeetGrowth(d))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(matrixData.filter(d =>
-                      [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number)
-                    ).reduce((sum, d) => sum + d.student_count, 0) * 0.25)}
+                    {formatPoints(matrixData.filter(d => isDidNotMeetGrowth(d))
+                      .reduce((sum, d) => sum + d.student_count, 0) * 0.25)}
                   </td>
                 </tr>
                 <tr className="font-bold">
                   <td className="border p-2">Total</td>
                   <td className="border p-2 text-center">
-                    {matrixData.filter(d =>
-                      ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                    ).reduce((sum, d) => sum + d.student_count, 0)}
+                    {matrixData.filter(d => isDidNotMeetLevel(d.staar_level))
+                      .reduce((sum, d) => sum + d.student_count, 0)}
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(
-                      matrixData.filter(d =>
-                        [34, 33, 32, 31, 28, 27, 26, 25].includes(d.group_number) &&
-                        ['Did Not Meet Low', 'Did Not Meet High'].includes(d.staar_level)
-                      ).reduce((sum, d) => sum + d.student_count, 0) * 0.25
-                    )}
+                    {formatPoints(calculateHb4545BonusPoints())}
                   </td>
                 </tr>
               </tbody>
