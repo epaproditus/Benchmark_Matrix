@@ -1,7 +1,17 @@
 import PerformanceSettings from '@/components/PerformanceSettings';
 import Link from 'next/link';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+    const session = await auth();
+    if (!session?.user?.email) {
+        redirect('/login');
+    }
+    if (!session.user.isAdmin) {
+        redirect('/');
+    }
+
     return (
         <main className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-4">
