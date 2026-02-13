@@ -376,16 +376,23 @@ const PerformanceMatrix = () => {
   // Logic updated to match TEA matrix orientation-agnostically
   const isDidNotMeetLevel = (level: string) => level.includes('Did Not Meet');
 
-  const getCellMultiplier = (cell: CellData): number => {
+  const isDidNotMeetGrowth = (cell: CellData): boolean => {
+    const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
+    const benchmarkIdx = finalCurrentLevels.indexOf(cell.benchmark_level);
+    const count = Number(cell.student_count) || 0;
+    return staarIdx !== -1 && benchmarkIdx !== -1 && count > 0 && isDidNotMeetLevel(cell.staar_level) && benchmarkIdx > staarIdx;
+  };
+
+  const getBaseCellMultiplier = (cell: CellData): number => {
     const staarIdx = finalPreviousLevels.indexOf(cell.staar_level);
     const benchmarkIdx = finalCurrentLevels.indexOf(cell.benchmark_level);
     const count = Number(cell.student_count) || 0;
 
     if (staarIdx === -1 || benchmarkIdx === -1 || count === 0) return 0;
 
-    // Growth from Did Not Meet earns 0.25; other growth earns 1.0
+    // Did Not Meet growth is scored separately in HB4545 (0.25 bonus), not in base points.
     if (benchmarkIdx > staarIdx) {
-      return isDidNotMeetLevel(cell.staar_level) ? 0.25 : 1.0;
+      return isDidNotMeetLevel(cell.staar_level) ? 0 : 1.0;
     }
 
     // Maintenance earns points based on previous level
@@ -400,25 +407,41 @@ const PerformanceMatrix = () => {
     return 0;
   };
 
-  const getCountByMultiplier = (multiplier: number) =>
+  const getCountByBaseMultiplier = (multiplier: number) =>
     matrixData.reduce((sum: number, cell: CellData) => {
       const count = Number(cell.student_count) || 0;
-      return getCellMultiplier(cell) === multiplier ? sum + count : sum;
+      return getBaseCellMultiplier(cell) === multiplier ? sum + count : sum;
     }, 0);
 
-  const calculateTotalPoints = () => {
+  const calculateBasePoints = () => {
     try {
       if (!matrixData || !Array.isArray(matrixData)) return 0;
 
       return matrixData.reduce((totalPoints: number, cell: CellData) => {
         const count = Number(cell.student_count) || 0;
-        return totalPoints + (count * getCellMultiplier(cell));
+        return totalPoints + (count * getBaseCellMultiplier(cell));
       }, 0);
     } catch (err) {
-      console.error('Error calculating total points:', err);
+      console.error('Error calculating base points:', err);
       return 0;
     }
   };
+
+  const calculateHb4545BonusPoints = () => {
+    try {
+      if (!matrixData || !Array.isArray(matrixData)) return 0;
+      const quarterCount = matrixData.reduce((sum: number, cell: CellData) => {
+        const count = Number(cell.student_count) || 0;
+        return isDidNotMeetGrowth(cell) ? sum + count : sum;
+      }, 0);
+      return quarterCount * 0.25;
+    } catch (err) {
+      console.error('Error calculating HB4545 bonus points:', err);
+      return 0;
+    }
+  };
+
+  const calculateTotalPoints = () => calculateBasePoints() + calculateHb4545BonusPoints();
 
   const saveThreshold = async (type: 'current' | 'previous', label: string, min: number, max: number) => {
     try {
@@ -923,39 +946,29 @@ const PerformanceMatrix = () => {
                 <tr>
                   <td className="border p-2">Tests earning 0.0 points</td>
                   <td className="border p-2 text-center">
-                    {getCountByMultiplier(0)}
+                    {getCountByBaseMultiplier(0)}
                   </td>
                   <td className="border p-2 text-center">0.0</td>
                   <td className="border p-2 text-center">0.0</td>
-                </tr>
-                <tr>
-                  <td className="border p-2">Tests earning 0.25 points</td>
-                  <td className="border p-2 text-center">
-                    {getCountByMultiplier(0.25)}
-                  </td>
-                  <td className="border p-2 text-center">0.25</td>
-                  <td className="border p-2 text-center">
-                    {formatPoints(getCountByMultiplier(0.25) * 0.25)}
-                  </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 0.5 points</td>
                   <td className="border p-2 text-center">
-                    {getCountByMultiplier(0.5)}
+                    {getCountByBaseMultiplier(0.5)}
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(getCountByMultiplier(0.5) * 0.5)}
+                    {formatPoints(getCountByBaseMultiplier(0.5) * 0.5)}
                   </td>
                 </tr>
                 <tr>
                   <td className="border p-2">Tests earning 1.0 points</td>
                   <td className="border p-2 text-center">
-                    {getCountByMultiplier(1)}
+                    {getCountByBaseMultiplier(1)}
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(getCountByMultiplier(1) * 1.0)}
+                    {formatPoints(getCountByBaseMultiplier(1) * 1.0)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -965,7 +978,7 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {formatPoints(calculateTotalPoints())}
+                    {formatPoints(calculateBasePoints())}
                   </td>
                 </tr>
               </tbody>
