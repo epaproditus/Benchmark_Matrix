@@ -182,19 +182,29 @@ export function UnifiedStudentScoresTable() {
         }
     };
     const getLevelColor = (level: string | null | undefined) => {
-        if (!level) return 'text-gray-500';
-        if (level.includes('Masters')) return 'text-purple-600 dark:text-purple-400 font-bold';
-        if (level.includes('Meets')) return 'text-green-600 dark:text-green-400 font-bold';
-        if (level.includes('Approaches')) return 'text-blue-600 dark:text-blue-400 font-medium';
-        if (level.includes('Did Not Meet')) return 'text-red-600 dark:text-red-400 font-medium';
-        return 'text-gray-600 dark:text-gray-400';
+        if (!level) return 'text-zinc-500';
+        if (level.includes('Masters')) return 'text-fuchsia-300 font-bold';
+        if (level.includes('Meets')) return 'text-emerald-300 font-bold';
+        if (level.includes('Approaches')) return 'text-sky-300 font-medium';
+        if (level.includes('Did Not Meet')) return 'text-rose-300 font-medium';
+        return 'text-zinc-400';
     };
 
-    const renderScoreCell = (score: number | null | undefined, level: string | null | undefined) => {
-        if (score === null || score === undefined) return <span className="text-gray-400">-</span>;
+    const getScoreTextColor = (column: 'staar' | 'fall' | 'spring') => {
+        if (column === 'staar') return 'text-violet-300';
+        if (column === 'fall') return 'text-amber-300';
+        return 'text-cyan-300';
+    };
+
+    const renderScoreCell = (
+        score: number | null | undefined,
+        level: string | null | undefined,
+        column: 'staar' | 'fall' | 'spring'
+    ) => {
+        if (score === null || score === undefined) return <span className="text-zinc-500">-</span>;
         return (
             <div>
-                <span className="font-mono text-lg">{score}</span>
+                <span className={`font-mono text-lg ${getScoreTextColor(column)}`}>{score}</span>
                 {level && level !== 'Unknown' && (
                     <span className={`ml-2 text-xs uppercase ${getLevelColor(level)}`}>
                         {level}
@@ -204,19 +214,19 @@ export function UnifiedStudentScoresTable() {
         );
     };
 
-    if (!students) return <div className="p-4 text-sm text-gray-500">Loading student data...</div>;
+    if (!students) return <div className="p-4 text-sm text-zinc-500">Loading student data...</div>;
 
     return (
-        <div className="mt-8 border rounded-lg overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+        <div className="mt-8 border border-zinc-700 rounded-lg overflow-hidden bg-black shadow-sm">
+            <div className="flex items-center justify-between p-4 bg-zinc-900 border-b border-zinc-800">
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="flex items-center gap-4 hover:opacity-75 transition"
                 >
-                    <span className="font-semibold text-lg text-gray-800 dark:text-gray-200">
+                    <span className="font-semibold text-lg text-zinc-100">
                         All Student Scores ({students.length})
                     </span>
-                    <span className="text-gray-500 text-xs">
+                    <span className="text-zinc-400 text-xs">
                         {isOpen ? '▼' : '▶'}
                     </span>
                 </button>
@@ -226,31 +236,31 @@ export function UnifiedStudentScoresTable() {
                             <input
                                 type="text"
                                 placeholder="Filter by name..."
-                                className="text-sm px-3 py-1 rounded border dark:bg-zinc-900 dark:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="text-sm px-3 py-1 rounded border border-zinc-700 bg-black text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                                 value={filterText}
                                 onChange={(e) => setFilterText(e.target.value)}
                             />
                             <button
                                 onClick={startAdd}
-                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                className="px-3 py-1 bg-emerald-700 text-white text-sm rounded hover:bg-emerald-600"
                             >
                                 + Add Row
                             </button>
                             <button
                                 onClick={() => handleExport('spring')}
-                                className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200"
+                                className="px-3 py-1 bg-cyan-900/60 text-cyan-200 text-sm rounded hover:bg-cyan-800/80"
                             >
                                 Export Spring
                             </button>
                             <button
                                 onClick={() => handleExport('fall')}
-                                className="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded hover:bg-orange-200"
+                                className="px-3 py-1 bg-amber-900/60 text-amber-200 text-sm rounded hover:bg-amber-800/80"
                             >
                                 Export Fall
                             </button>
                             <button
                                 onClick={() => handleExport('previous')}
-                                className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded hover:bg-purple-200"
+                                className="px-3 py-1 bg-violet-900/60 text-violet-200 text-sm rounded hover:bg-violet-800/80"
                             >
                                 Export Previous STAAR
                             </button>
@@ -261,67 +271,67 @@ export function UnifiedStudentScoresTable() {
 
             {isOpen && (
                 <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                        <thead className="bg-gray-50 dark:bg-zinc-800 sticky top-0 z-10">
+                    <table className="min-w-full divide-y divide-zinc-800">
+                        <thead className="bg-zinc-900 sticky top-0 z-10">
                             <tr>
                                 <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+                                    className="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
                                     onClick={() => requestSort('LastName')}
                                 >
                                     Student Name {sortConfig?.key === 'LastName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
                                 <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+                                    className="px-6 py-3 text-left text-xs font-medium text-violet-300 uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
                                     onClick={() => requestSort('StaarScore')}
                                 >
                                     Previous STAAR {sortConfig?.key === 'StaarScore' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
                                 <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-orange-600 dark:text-orange-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+                                    className="px-6 py-3 text-left text-xs font-medium text-amber-300 uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
                                     onClick={() => requestSort('FallScore')}
                                 >
                                     Fall Benchmark {sortConfig?.key === 'FallScore' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
                                 <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+                                    className="px-6 py-3 text-left text-xs font-medium text-cyan-300 uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
                                     onClick={() => requestSort('SpringScore')}
                                 >
                                     Spring Benchmark {sortConfig?.key === 'SpringScore' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-400 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+                        <tbody className="bg-black divide-y divide-zinc-800">
                             {isAdding && (
-                                <tr className="bg-blue-50 dark:bg-blue-900/20">
+                                <tr className="bg-zinc-900/70">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         <div className="flex flex-col gap-1">
-                                            <input placeholder="Last Name" className="border p-1 rounded text-black" value={addForm.LastName ?? ''} onChange={e => handleInputChange(e, 'LastName', true)} />
-                                            <input placeholder="First Name" className="border p-1 rounded text-black" value={addForm.FirstName ?? ''} onChange={e => handleInputChange(e, 'FirstName', true)} />
-                                            <input placeholder="ID" className="border p-1 rounded text-black text-xs" value={addForm.LocalId ?? ''} onChange={e => handleInputChange(e, 'LocalId', true)} />
+                                            <input placeholder="Last Name" className="border border-zinc-700 bg-black p-1 rounded text-zinc-100" value={addForm.LastName ?? ''} onChange={e => handleInputChange(e, 'LastName', true)} />
+                                            <input placeholder="First Name" className="border border-zinc-700 bg-black p-1 rounded text-zinc-100" value={addForm.FirstName ?? ''} onChange={e => handleInputChange(e, 'FirstName', true)} />
+                                            <input placeholder="ID" className="border border-zinc-700 bg-black p-1 rounded text-zinc-100 text-xs" value={addForm.LocalId ?? ''} onChange={e => handleInputChange(e, 'LocalId', true)} />
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="STAAR" className="w-16 border p-1 rounded text-black" value={addForm.StaarScore ?? ''} onChange={e => handleInputChange(e, 'StaarScore', true)} />
+                                        <input type="number" placeholder="STAAR" className="w-20 border border-zinc-700 bg-black p-1 rounded text-zinc-100" value={addForm.StaarScore ?? ''} onChange={e => handleInputChange(e, 'StaarScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="Fall" className="w-16 border p-1 rounded text-black" value={addForm.FallScore ?? ''} onChange={e => handleInputChange(e, 'FallScore', true)} />
+                                        <input type="number" placeholder="Fall" className="w-20 border border-zinc-700 bg-black p-1 rounded text-zinc-100" value={addForm.FallScore ?? ''} onChange={e => handleInputChange(e, 'FallScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="Spring" className="w-16 border p-1 rounded text-black" value={addForm.SpringScore ?? ''} onChange={e => handleInputChange(e, 'SpringScore', true)} />
+                                        <input type="number" placeholder="Spring" className="w-20 border border-zinc-700 bg-black p-1 rounded text-zinc-100" value={addForm.SpringScore ?? ''} onChange={e => handleInputChange(e, 'SpringScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button onClick={saveAdd} className="text-green-600 mr-2">Save</button>
-                                        <button onClick={cancelAdd} className="text-gray-500">Cancel</button>
+                                        <button onClick={saveAdd} className="px-2 py-1 rounded bg-emerald-700 text-emerald-100 hover:bg-emerald-600 mr-2">Save</button>
+                                        <button onClick={cancelAdd} className="px-2 py-1 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600">Cancel</button>
                                     </td>
                                 </tr>
                             )}
                             {sortedData.map((row) => (
                                 <tr
                                     key={row.LocalId}
-                                    className="hover:bg-gray-50 dark:hover:bg-zinc-800 group cursor-pointer"
+                                    className="hover:bg-zinc-900/70 group cursor-pointer"
                                     onClick={() => startEdit(row)}
                                     role="button"
                                     tabIndex={0}
@@ -332,18 +342,18 @@ export function UnifiedStudentScoresTable() {
                                         }
                                     }}
                                 >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-200">
                                         <div className="font-medium">{row.LastName}, {row.FirstName}</div>
-                                        <div className="text-xs text-gray-400">{row.LocalId}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        {renderScoreCell(row.StaarScore, row.StaarLevel)}
+                                        <div className="text-xs text-zinc-500">{row.LocalId}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {renderScoreCell(row.FallScore, row.FallLevel)}
+                                        {renderScoreCell(row.StaarScore, row.StaarLevel, 'staar')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {renderScoreCell(row.SpringScore, row.SpringLevel)}
+                                        {renderScoreCell(row.FallScore, row.FallLevel, 'fall')}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        {renderScoreCell(row.SpringScore, row.SpringLevel, 'spring')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button
@@ -351,10 +361,10 @@ export function UnifiedStudentScoresTable() {
                                                 e.stopPropagation();
                                                 void handleDelete(row.LocalId);
                                             }}
-                                            className="text-red-400 hover:text-red-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="px-2 py-1 rounded bg-rose-900/60 text-rose-200 hover:bg-rose-800/80"
                                             title="Delete Record"
                                         >
-                                            🗑️
+                                            Delete
                                         </button>
                                     </td>
                                 </tr>
@@ -365,23 +375,23 @@ export function UnifiedStudentScoresTable() {
             )}
             {editingId !== null && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
                     onClick={cancelEdit}
                 >
                     <div
-                        className="w-full max-w-2xl rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl"
+                        className="w-full max-w-2xl rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Student Scores</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="px-6 py-4 border-b border-zinc-800">
+                            <h3 className="text-lg font-semibold text-zinc-100">Edit Student Scores</h3>
+                            <p className="text-sm text-zinc-400 mt-1">
                                 {editForm.LastName ?? ''}, {editForm.FirstName ?? ''} · {editForm.LocalId ?? ''}
                             </p>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-5">
-                            <label className="text-sm text-gray-700 dark:text-gray-300">
-                                <span className="block mb-2 text-purple-600 dark:text-purple-300 font-medium">Previous STAAR</span>
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-violet-300 font-medium">Previous STAAR</span>
                                 <input
                                     type="number"
                                     min={0}
@@ -389,13 +399,13 @@ export function UnifiedStudentScoresTable() {
                                     step={0.1}
                                     value={editForm.StaarScore ?? ''}
                                     onChange={(e) => handleInputChange(e, 'StaarScore')}
-                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-400"
                                     placeholder="0 - 100"
                                 />
                             </label>
 
-                            <label className="text-sm text-gray-700 dark:text-gray-300">
-                                <span className="block mb-2 text-orange-600 dark:text-orange-300 font-medium">Fall Benchmark</span>
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-amber-300 font-medium">Fall Benchmark</span>
                                 <input
                                     type="number"
                                     min={0}
@@ -403,13 +413,13 @@ export function UnifiedStudentScoresTable() {
                                     step={0.1}
                                     value={editForm.FallScore ?? ''}
                                     onChange={(e) => handleInputChange(e, 'FallScore')}
-                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-400"
                                     placeholder="0 - 100"
                                 />
                             </label>
 
-                            <label className="text-sm text-gray-700 dark:text-gray-300">
-                                <span className="block mb-2 text-blue-600 dark:text-blue-300 font-medium">Spring Benchmark</span>
+                            <label className="text-sm text-zinc-300">
+                                <span className="block mb-2 text-cyan-300 font-medium">Spring Benchmark</span>
                                 <input
                                     type="number"
                                     min={0}
@@ -417,13 +427,13 @@ export function UnifiedStudentScoresTable() {
                                     step={0.1}
                                     value={editForm.SpringScore ?? ''}
                                     onChange={(e) => handleInputChange(e, 'SpringScore')}
-                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    className="w-full bg-black border border-zinc-700 rounded px-3 py-2 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                                     placeholder="0 - 100"
                                 />
                             </label>
                         </div>
 
-                        <div className="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 flex flex-wrap items-center justify-between gap-3">
+                        <div className="px-6 py-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
                             <button
                                 onClick={async () => {
                                     const localId = editForm.LocalId ?? '';
@@ -431,7 +441,7 @@ export function UnifiedStudentScoresTable() {
                                     const didDelete = await handleDelete(localId);
                                     if (didDelete) cancelEdit();
                                 }}
-                                className="px-3 py-2 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-800/60"
+                                className="px-3 py-2 rounded bg-rose-900/60 text-rose-200 hover:bg-rose-800/80"
                             >
                                 Delete Student
                             </button>
@@ -439,13 +449,13 @@ export function UnifiedStudentScoresTable() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={cancelEdit}
-                                    className="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-zinc-700 dark:text-gray-100 dark:hover:bg-zinc-600"
+                                    className="px-3 py-2 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={saveEdit}
-                                    className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-500"
+                                    className="px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-500"
                                 >
                                     Save Scores
                                 </button>
