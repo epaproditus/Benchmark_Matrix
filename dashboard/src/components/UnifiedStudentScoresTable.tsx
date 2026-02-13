@@ -21,6 +21,7 @@ interface EditDraft {
 }
 
 type ExportType = 'spring' | 'fall' | 'previous';
+type ScoreColumn = 'staar' | 'fall' | 'spring';
 
 export function UnifiedStudentScoresTable() {
     const [data, setData] = useState<UnifiedScoreRecord[]>([]);
@@ -228,20 +229,52 @@ export function UnifiedStudentScoresTable() {
         return 'text-zinc-400';
     };
 
+    const getDerivedLevel = (score: number | null, column: ScoreColumn): string | null => {
+        if (score === null) return null;
+
+        const previousRanges = [
+            { label: 'Did Not Meet Low', min: 0, max: 28 },
+            { label: 'Did Not Meet High', min: 28, max: 36 },
+            { label: 'Approaches Low', min: 37, max: 46 },
+            { label: 'Approaches High', min: 47, max: 57 },
+            { label: 'Meets', min: 58, max: 78 },
+            { label: 'Masters', min: 79, max: 100 },
+        ];
+
+        const currentRanges = [
+            { label: 'Did Not Meet Low', min: 0, max: 26 },
+            { label: 'Did Not Meet High', min: 27, max: 34 },
+            { label: 'Approaches Low', min: 35, max: 43 },
+            { label: 'Approaches High', min: 44, max: 51 },
+            { label: 'Meets', min: 52, max: 76 },
+            { label: 'Masters', min: 77, max: 100 },
+        ];
+
+        const ranges = column === 'staar' ? previousRanges : currentRanges;
+        const match = ranges.find((range) => score >= range.min && score <= range.max);
+        return match?.label ?? null;
+    };
+
+    const getDisplayLevel = (level: string | null, score: number | null, column: ScoreColumn): string | null => {
+        if (level && level !== 'Unknown') return level;
+        return getDerivedLevel(score, column);
+    };
+
     const getScoreTextColor = (column: 'staar' | 'fall' | 'spring') => {
         if (column === 'staar') return 'text-violet-300';
         if (column === 'fall') return 'text-amber-300';
         return 'text-cyan-300';
     };
 
-    const renderScoreCell = (score: number | null, level: string | null, column: 'staar' | 'fall' | 'spring') => {
+    const renderScoreCell = (score: number | null, level: string | null, column: ScoreColumn) => {
         if (score === null) return <span className="text-zinc-500">-</span>;
+        const displayLevel = getDisplayLevel(level, score, column);
         return (
             <div>
                 <span className={`font-mono text-lg ${getScoreTextColor(column)}`}>{score}</span>
-                {level && level !== 'Unknown' && (
-                    <span className={`ml-2 text-xs uppercase ${getLevelColor(level)}`}>
-                        {level}
+                {displayLevel && (
+                    <span className={`ml-2 text-xs uppercase ${getLevelColor(displayLevel)}`}>
+                        {displayLevel}
                     </span>
                 )}
             </div>
@@ -277,15 +310,25 @@ export function UnifiedStudentScoresTable() {
         };
 
         const { label, scoreKey, levelKey } = exportConfig[type];
+        const columnByExportType: Record<ExportType, ScoreColumn> = {
+            spring: 'spring',
+            fall: 'fall',
+            previous: 'staar',
+        };
+
         const rows = data
             .filter((row) => row[scoreKey] !== null)
-            .map((row) => [
-                row.LocalId,
-                row.LastName ?? '',
-                row.FirstName ?? '',
-                row[scoreKey] as number | null,
-                row[levelKey] as string | null,
-            ]);
+            .map((row) => {
+                const score = row[scoreKey] as number | null;
+                const level = getDisplayLevel(row[levelKey] as string | null, score, columnByExportType[type]);
+                return [
+                    row.LocalId,
+                    row.LastName ?? '',
+                    row.FirstName ?? '',
+                    score,
+                    level,
+                ];
+            });
 
         if (rows.length === 0) {
             alert(`No ${label.replaceAll('_', ' ')} available to export.`);
