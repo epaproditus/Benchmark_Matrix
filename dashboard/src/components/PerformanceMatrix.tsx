@@ -432,6 +432,11 @@ const PerformanceMatrix = () => {
     }
   };
 
+  const formatPoints = (value: number): string => {
+    const rounded = Math.round(value * 100) / 100;
+    return Number.isInteger(rounded * 2) ? rounded.toFixed(1) : rounded.toFixed(2);
+  };
+
 
   if (!isMounted) return null;
 
@@ -606,7 +611,7 @@ const PerformanceMatrix = () => {
           <div className="text-lg bg-black text-white p-4 rounded-lg border border-white/20">
             <div className="flex justify-between">
               <span className="opacity-75">Total Points:</span>
-              <span className="font-mono font-bold">{calculateTotalPoints().toFixed(1)}</span>
+              <span className="font-mono font-bold">{formatPoints(calculateTotalPoints())}</span>
             </div>
             <div className="flex justify-between">
               <span className="opacity-75">Total Students:</span>
@@ -929,11 +934,13 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">0.5</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => {
-                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                      return sIdx === bIdx && d.staar_level.includes('Approaches');
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5).toFixed(1)}
+                    {formatPoints(
+                      matrixData.filter(d => {
+                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                        return sIdx === bIdx && d.staar_level.includes('Approaches');
+                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.5
+                    )}
                   </td>
                 </tr>
                 <tr>
@@ -947,11 +954,13 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">1.0</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => {
-                      const sIdx = finalPreviousLevels.indexOf(d.staar_level);
-                      const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
-                      return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0).toFixed(1)}
+                    {formatPoints(
+                      matrixData.filter(d => {
+                        const sIdx = finalPreviousLevels.indexOf(d.staar_level);
+                        const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
+                        return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
+                      }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
+                    )}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -961,7 +970,7 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {(
+                    {formatPoints(
                       matrixData.filter(d => {
                         const sIdx = finalPreviousLevels.indexOf(d.staar_level);
                         const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
@@ -972,7 +981,7 @@ const PerformanceMatrix = () => {
                         const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
                         return bIdx > sIdx || (sIdx === bIdx && !d.staar_level.includes('Did Not Meet') && !d.staar_level.includes('Approaches'));
                       }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 1.0
-                    ).toFixed(1)}
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -1016,11 +1025,11 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">0.25</td>
                   <td className="border p-2 text-center">
-                    {(matrixData.filter(d => {
+                    {formatPoints(matrixData.filter(d => {
                       const sIdx = finalPreviousLevels.indexOf(d.staar_level);
                       const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
                       return d.staar_level.includes('Did Not Meet') && bIdx > sIdx;
-                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25).toFixed(1)}
+                    }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25)}
                   </td>
                 </tr>
                 <tr className="font-bold">
@@ -1032,13 +1041,13 @@ const PerformanceMatrix = () => {
                   </td>
                   <td className="border p-2 text-center">-</td>
                   <td className="border p-2 text-center">
-                    {(
+                    {formatPoints(
                       matrixData.filter(d => {
                         const sIdx = finalPreviousLevels.indexOf(d.staar_level);
                         const bIdx = finalCurrentLevels.indexOf(d.benchmark_level);
                         return d.staar_level.includes('Did Not Meet') && bIdx > sIdx;
                       }).reduce((sum: number, d: CellData) => sum + d.student_count, 0) * 0.25
-                    ).toFixed(1)}
+                    )}
                   </td>
                 </tr>
               </tbody>
