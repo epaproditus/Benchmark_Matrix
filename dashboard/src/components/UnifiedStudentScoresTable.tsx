@@ -4,6 +4,8 @@ import React, { useState, useMemo } from 'react';
 import { db, Student } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 
+type ExportType = 'spring' | 'fall' | 'previous';
+
 export function UnifiedStudentScoresTable() {
     // Live query to local DB
     const students = useLiveQuery(() => db.students.toArray()) || [];
@@ -58,18 +60,71 @@ export function UnifiedStudentScoresTable() {
         setAddForm({});
     };
 
+    const escapeCsvField = (value: string | number | null | undefined): string => {
+        const text = value === null || value === undefined ? '' : String(value);
+        if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+            return `"${text.replace(/"/g, '""')}"`;
+        }
+        return text;
+    };
+
+    const downloadCsv = (filename: string, rows: Array<Array<string | number | null>>) => {
+        const csv = rows.map((row) => row.map(escapeCsvField).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExport = (type: ExportType) => {
+        const exportConfig: Record<ExportType, { label: string; scoreKey: keyof Student; levelKey: keyof Student }> = {
+            spring: { label: 'spring_scores', scoreKey: 'SpringScore', levelKey: 'SpringLevel' },
+            fall: { label: 'fall_scores', scoreKey: 'FallScore', levelKey: 'FallLevel' },
+            previous: { label: 'previous_staar_scores', scoreKey: 'StaarScore', levelKey: 'StaarLevel' },
+        };
+
+        const { label, scoreKey, levelKey } = exportConfig[type];
+        const rows = students
+            .filter((row) => row[scoreKey] !== null)
+            .map((row) => [
+                row.LocalId,
+                row.LastName ?? '',
+                row.FirstName ?? '',
+                row[scoreKey] as number | null,
+                row[levelKey] as string | null,
+            ]);
+
+        if (rows.length === 0) {
+            alert(`No ${label.replaceAll('_', ' ')} available to export.`);
+            return;
+        }
+
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        downloadCsv(`${label}_${dateStamp}.csv`, [
+            ['LocalId', 'LastName', 'FirstName', 'Score', 'Level'],
+            ...rows,
+        ]);
+    };
+
 
     // Delete handler
-    const handleDelete = async (localId: string) => {
-        if (!confirm('Are you sure you want to delete this student record from ALL lists? This cannot be undone.')) return;
+    const handleDelete = async (localId: string): Promise<boolean> => {
+        if (!confirm('Are you sure you want to delete this student record from ALL lists? This cannot be undone.')) return false;
 
         try {
             // Delete from local DB by LocalId (using compound index or manual filtering if not indexed unique)
             // Schema has &LocalId, so it is a unique index.
             await db.students.where('LocalId').equals(localId).delete();
+            return true;
         } catch (error) {
             console.error('Delete failed:', error);
             alert('Error deleting record.');
+            return false;
         }
     };
 
@@ -116,7 +171,10 @@ export function UnifiedStudentScoresTable() {
     }, [students, sortConfig, filterText]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof Student, isAdd: boolean = false) => {
-        const val = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+        const numericValue = e.target.value.trim() === '' ? null : Number(e.target.value);
+        const val = e.target.type === 'number'
+            ? (Number.isNaN(numericValue) ? null : numericValue)
+            : e.target.value;
         if (isAdd) {
             setAddForm(prev => ({ ...prev, [field]: val }));
         } else {
@@ -178,6 +236,24 @@ export function UnifiedStudentScoresTable() {
                             >
                                 + Add Row
                             </button>
+                            <button
+                                onClick={() => handleExport('spring')}
+                                className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200"
+                            >
+                                Export Spring
+                            </button>
+                            <button
+                                onClick={() => handleExport('fall')}
+                                className="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded hover:bg-orange-200"
+                            >
+                                Export Fall
+                            </button>
+                            <button
+                                onClick={() => handleExport('previous')}
+                                className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded hover:bg-purple-200"
+                            >
+                                Export Previous STAAR
+                            </button>
                         </>
                     )}
                 </div>
@@ -222,19 +298,19 @@ export function UnifiedStudentScoresTable() {
                                 <tr className="bg-blue-50 dark:bg-blue-900/20">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         <div className="flex flex-col gap-1">
-                                            <input placeholder="Last Name" className="border p-1 rounded text-black" value={addForm.LastName || ''} onChange={e => handleInputChange(e, 'LastName', true)} />
-                                            <input placeholder="First Name" className="border p-1 rounded text-black" value={addForm.FirstName || ''} onChange={e => handleInputChange(e, 'FirstName', true)} />
-                                            <input placeholder="ID" className="border p-1 rounded text-black text-xs" value={addForm.LocalId || ''} onChange={e => handleInputChange(e, 'LocalId', true)} />
+                                            <input placeholder="Last Name" className="border p-1 rounded text-black" value={addForm.LastName ?? ''} onChange={e => handleInputChange(e, 'LastName', true)} />
+                                            <input placeholder="First Name" className="border p-1 rounded text-black" value={addForm.FirstName ?? ''} onChange={e => handleInputChange(e, 'FirstName', true)} />
+                                            <input placeholder="ID" className="border p-1 rounded text-black text-xs" value={addForm.LocalId ?? ''} onChange={e => handleInputChange(e, 'LocalId', true)} />
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="STAAR" className="w-16 border p-1 rounded text-black" value={addForm.StaarScore || ''} onChange={e => handleInputChange(e, 'StaarScore', true)} />
+                                        <input type="number" placeholder="STAAR" className="w-16 border p-1 rounded text-black" value={addForm.StaarScore ?? ''} onChange={e => handleInputChange(e, 'StaarScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="Fall" className="w-16 border p-1 rounded text-black" value={addForm.FallScore || ''} onChange={e => handleInputChange(e, 'FallScore', true)} />
+                                        <input type="number" placeholder="Fall" className="w-16 border p-1 rounded text-black" value={addForm.FallScore ?? ''} onChange={e => handleInputChange(e, 'FallScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <input type="number" placeholder="Spring" className="w-16 border p-1 rounded text-black" value={addForm.SpringScore || ''} onChange={e => handleInputChange(e, 'SpringScore', true)} />
+                                        <input type="number" placeholder="Spring" className="w-16 border p-1 rounded text-black" value={addForm.SpringScore ?? ''} onChange={e => handleInputChange(e, 'SpringScore', true)} />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={saveAdd} className="text-green-600 mr-2">Save</button>
@@ -243,60 +319,139 @@ export function UnifiedStudentScoresTable() {
                                 </tr>
                             )}
                             {sortedData.map((row) => (
-                                <tr key={row.LocalId} className="hover:bg-gray-50 dark:hover:bg-zinc-800 group">
-                                    {editingId === row.id ? (
-                                        <>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <div className="flex flex-col gap-1">
-                                                    <input className="border p-1 rounded text-black" value={editForm.LastName || ''} onChange={e => handleInputChange(e, 'LastName')} />
-                                                    <input className="border p-1 rounded text-black" value={editForm.FirstName || ''} onChange={e => handleInputChange(e, 'FirstName')} />
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <input type="number" className="w-16 border p-1 rounded text-black" value={editForm.StaarScore || ''} onChange={e => handleInputChange(e, 'StaarScore')} />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <input type="number" className="w-16 border p-1 rounded text-black" value={editForm.FallScore || ''} onChange={e => handleInputChange(e, 'FallScore')} />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <input type="number" className="w-16 border p-1 rounded text-black" value={editForm.SpringScore || ''} onChange={e => handleInputChange(e, 'SpringScore')} />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button onClick={saveEdit} className="text-green-600 mr-2">💾</button>
-                                                <button onClick={cancelEdit} className="text-gray-500">✕</button>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                                <div className="font-medium">{row.LastName}, {row.FirstName}</div>
-                                                <div className="text-xs text-gray-400">{row.LocalId}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                {renderScoreCell(row.StaarScore, row.StaarLevel)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                {renderScoreCell(row.FallScore, row.FallLevel)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                {renderScoreCell(row.SpringScore, row.SpringLevel)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button onClick={() => startEdit(row)} className="text-blue-400 hover:text-blue-600 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">✎</button>
-                                                <button
-                                                    onClick={() => handleDelete(row.LocalId)}
-                                                    className="text-red-400 hover:text-red-900 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    title="Delete Record"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </td>
-                                        </>
-                                    )}
+                                <tr
+                                    key={row.LocalId}
+                                    className="hover:bg-gray-50 dark:hover:bg-zinc-800 group cursor-pointer"
+                                    onClick={() => startEdit(row)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            startEdit(row);
+                                        }
+                                    }}
+                                >
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                        <div className="font-medium">{row.LastName}, {row.FirstName}</div>
+                                        <div className="text-xs text-gray-400">{row.LocalId}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                        {renderScoreCell(row.StaarScore, row.StaarLevel)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        {renderScoreCell(row.FallScore, row.FallLevel)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        {renderScoreCell(row.SpringScore, row.SpringLevel)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                void handleDelete(row.LocalId);
+                                            }}
+                                            className="text-red-400 hover:text-red-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Delete Record"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+            {editingId !== null && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={cancelEdit}
+                >
+                    <div
+                        className="w-full max-w-2xl rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Student Scores</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {editForm.LastName ?? ''}, {editForm.FirstName ?? ''} · {editForm.LocalId ?? ''}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-5">
+                            <label className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="block mb-2 text-purple-600 dark:text-purple-300 font-medium">Previous STAAR</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editForm.StaarScore ?? ''}
+                                    onChange={(e) => handleInputChange(e, 'StaarScore')}
+                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+
+                            <label className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="block mb-2 text-orange-600 dark:text-orange-300 font-medium">Fall Benchmark</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editForm.FallScore ?? ''}
+                                    onChange={(e) => handleInputChange(e, 'FallScore')}
+                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+
+                            <label className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="block mb-2 text-blue-600 dark:text-blue-300 font-medium">Spring Benchmark</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.1}
+                                    value={editForm.SpringScore ?? ''}
+                                    onChange={(e) => handleInputChange(e, 'SpringScore')}
+                                    className="w-full bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    placeholder="0 - 100"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 flex flex-wrap items-center justify-between gap-3">
+                            <button
+                                onClick={async () => {
+                                    const localId = editForm.LocalId ?? '';
+                                    if (!localId) return;
+                                    const didDelete = await handleDelete(localId);
+                                    if (didDelete) cancelEdit();
+                                }}
+                                className="px-3 py-2 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-800/60"
+                            >
+                                Delete Student
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={cancelEdit}
+                                    className="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-zinc-700 dark:text-gray-100 dark:hover:bg-zinc-600"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={saveEdit}
+                                    className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-500"
+                                >
+                                    Save Scores
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
