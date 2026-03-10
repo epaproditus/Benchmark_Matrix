@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "PORT=3002 next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "mcp": "node ./mcp/server.mjs"
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.51.2",
@@ -14,6 +15,7 @@
     "@copilotkit/runtime": "^1.51.2",
     "@langchain/core": "^1.1.17",
     "@langchain/openai": "^1.2.3",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@tambo-ai/react": "^0.69.1",
     "@tambo-ai/typescript-sdk": "^0.84.0",
     "@valibot/to-json-schema": "^1.5.0",
@@ -25,13 +27,14 @@
     "json-stringify-pretty-compact": "^4.0.0",
     "lucide-react": "^0.563.0",
     "mysql2": "^3.12.0",
-    "next": "15.1.2",
+    "next": "^16.1.6",
     "openai": "^6.16.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
-    "sury": "^10.0.4"
+    "sury": "^10.0.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

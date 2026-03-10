@@ -69,6 +69,29 @@ npm run dev
 
 The dashboard will be available at [http://localhost:3002](http://localhost:3002).
 
+## 🤖 LLM + MCP Access
+
+The dashboard now includes:
+
+- **LLM-friendly API endpoints** under `/api/llm/*` for growth summaries and cell student lookups.
+- **A standalone MCP server** at `dashboard/mcp/server.mjs`.
+
+Run the MCP server:
+
+```bash
+cd dashboard
+npm run mcp
+```
+
+Set a custom API base URL if needed:
+
+```bash
+BENCHMARK_API_BASE_URL=http://localhost:3002 npm run mcp
+```
+
+Full details and request examples are in:
+- `docs/LLM_MCP_INTEGRATION.md`
+
 ## 📝 License
 
 This project is licensed under the MIT License.
