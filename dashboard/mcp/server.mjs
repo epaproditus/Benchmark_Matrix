@@ -4,20 +4,35 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import * as z from 'zod/v4';
 
-const DEFAULT_API_BASE_URL = 'http://localhost:3002';
+const DEFAULT_API_BASE_URLS = [
+  'http://localhost:3002',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+];
 const SUBJECTS = ['math', 'rla', 'campus'];
 const VERSIONS = ['fall', 'spring', 'spring-algebra'];
 
 function normalizeApiBaseUrl(value) {
-  const candidate = value?.trim() || DEFAULT_API_BASE_URL;
-  const url = new URL(candidate);
+  const url = new URL(value.trim());
   if (!url.pathname.endsWith('/')) {
     url.pathname = `${url.pathname}/`;
   }
   return url;
 }
 
-const apiBaseUrl = normalizeApiBaseUrl(process.env.BENCHMARK_API_BASE_URL);
+function getApiBaseUrlCandidates() {
+  const configured = process.env.BENCHMARK_API_BASE_URL?.trim();
+  if (configured) {
+    return [normalizeApiBaseUrl(configured)];
+  }
+
+  return DEFAULT_API_BASE_URLS.map((candidate) => normalizeApiBaseUrl(candidate));
+}
+
+const apiBaseUrls = getApiBaseUrlCandidates();
 
 function normalizeFilterValue(value) {
   if (!value) return undefined;
@@ -26,8 +41,8 @@ function normalizeFilterValue(value) {
   return trimmed;
 }
 
-function buildUrl(path, query = undefined) {
-  const url = new URL(path.replace(/^\//, ''), apiBaseUrl);
+function buildUrl(baseUrl, path, query = undefined) {
+  const url = new URL(path.replace(/^\//, ''), baseUrl);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined || value === null || value === '') continue;
@@ -39,34 +54,69 @@ function buildUrl(path, query = undefined) {
 
 async function callApi(path, options = {}) {
   const { method = 'GET', query, body } = options;
-  const url = buildUrl(path, query);
+  const attempts = [];
 
-  const response = await fetch(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  for (let index = 0; index < apiBaseUrls.length; index += 1) {
+    const baseUrl = apiBaseUrls[index];
+    const url = buildUrl(baseUrl, path, query);
 
-  const responseText = await response.text();
-  let responseBody;
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (error) {
+      attempts.push({
+        baseUrl: baseUrl.toString(),
+        type: 'network_error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
 
-  try {
-    responseBody = responseText ? JSON.parse(responseText) : {};
-  } catch {
-    responseBody = { raw: responseText };
-  }
+    const responseText = await response.text();
+    let responseBody;
 
-  if (!response.ok) {
+    try {
+      responseBody = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      responseBody = { raw: responseText };
+    }
+
+    if (response.ok) {
+      return responseBody;
+    }
+
+    attempts.push({
+      baseUrl: baseUrl.toString(),
+      type: 'http_error',
+      status: response.status,
+      payload: responseBody,
+    });
+
+    const isLastAttempt = index === apiBaseUrls.length - 1;
+    const shouldRetry = [404, 405, 502, 503, 504].includes(response.status);
+
+    if (!isLastAttempt && shouldRetry) {
+      continue;
+    }
+
     const error = new Error(`API request failed (${response.status}) for ${url.pathname}`);
     error.name = 'ApiError';
     error.status = response.status;
     error.payload = responseBody;
+    error.attempts = attempts;
     throw error;
   }
 
-  return responseBody;
+  const error = new Error(`All API base URL attempts failed for ${path}`);
+  error.name = 'ApiError';
+  error.attempts = attempts;
+  throw error;
 }
 
 function toolError(message, error) {
@@ -75,6 +125,7 @@ function toolError(message, error) {
     error: error instanceof Error ? error.message : String(error),
     status: typeof error?.status === 'number' ? error.status : undefined,
     payload: error?.payload,
+    attempts: error?.attempts,
   };
 
   return {
@@ -251,7 +302,9 @@ server.registerTool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`Benchmark Matrix MCP server running on stdio (API base: ${apiBaseUrl.toString()})`);
+  console.error(
+    `Benchmark Matrix MCP server running on stdio (API base candidates: ${apiBaseUrls.map((url) => url.toString()).join(', ')})`,
+  );
 }
 
 main().catch((error) => {

@@ -114,3 +114,31 @@ Add the same `benchmark-matrix` entry to your Cursor MCP config (the JSON file C
 ### Important
 - Keep the dashboard running (`cd dashboard && npm run dev`) while using MCP tools.
 - If you run the app on a different port/host, update `BENCHMARK_API_BASE_URL`.
+
+## Troubleshooting: `fetch failed`
+
+If MCP tools return `fetch failed`:
+
+1. Confirm the app API is running:
+```bash
+cd /Users/abe/projects/Benchmark_Matrix/dashboard
+npm run dev
+```
+
+2. Confirm this URL works in a browser or curl:
+```bash
+http://localhost:3002/api/settings
+```
+
+3. If you use a different host/port, set it in your MCP config:
+```json
+{
+  "env": {
+    "BENCHMARK_API_BASE_URL": "http://localhost:YOUR_PORT"
+  }
+}
+```
+
+4. Restart your MCP client after config changes.
+
+Note: the MCP server now auto-tries common local ports (`3002`, `3000`, `3001`) when `BENCHMARK_API_BASE_URL` is not set.
