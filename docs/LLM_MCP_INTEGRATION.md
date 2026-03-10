@@ -82,3 +82,35 @@ cd dashboard
 npm run mcp
 ```
 3. Connect your MCP-compatible LLM client to the command above.
+
+## Ready-To-Paste Client Configs
+
+Use this exact server definition in clients that support MCP JSON config.
+
+```json
+{
+  "mcpServers": {
+    "benchmark-matrix": {
+      "command": "node",
+      "args": [
+        "/Users/abe/projects/Benchmark_Matrix/dashboard/mcp/server.mjs"
+      ],
+      "env": {
+        "BENCHMARK_API_BASE_URL": "http://localhost:3002"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop (macOS)
+Add the `benchmark-matrix` entry to:
+
+`~/Library/Application Support/Claude/claude_desktop_config.json`
+
+### Cursor
+Add the same `benchmark-matrix` entry to your Cursor MCP config (the JSON file Cursor opens from its MCP settings).
+
+### Important
+- Keep the dashboard running (`cd dashboard && npm run dev`) while using MCP tools.
+- If you run the app on a different port/host, update `BENCHMARK_API_BASE_URL`.
